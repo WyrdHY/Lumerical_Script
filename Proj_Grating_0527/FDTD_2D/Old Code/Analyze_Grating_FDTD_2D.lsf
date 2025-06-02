@@ -1,0 +1,26 @@
+f=getdata("Begin Power","f");
+wl = c/f*1e9;
+bp = trans("Begin Power");
+tp = trans("Transmitted Power");
+sp = trans('Scattered Power');
+
+#plot(wl, bp, "Wavelength (nm)", "Power (a.u.)");holdon;
+#plot(wl, tp);holdon;
+plot(wl, sp);holdon;
+#legend("Begin", "Transmitted");
+
+
+avg_bp = transmission_avg("Begin Power");
+avg_tp = transmission_avg("Transmitted Power");
+avg_sp = transmission_avg("Scattered Power");
+
+pct_bp = avg_bp * 100;
+pct_tp = avg_tp * 100;
+pct_sp = avg_sp * 100;
+
+print("Begin power       = " + num2str(pct_bp) + "%");
+print("Transmitted power = " + num2str(pct_tp) + "%");
+print("Scattered power   = " + num2str(pct_sp) + "%");
+
+
+print('done');

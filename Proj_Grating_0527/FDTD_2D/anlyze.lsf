@@ -1,0 +1,271 @@
+function trans(m){
+    #f=getdata(m,"f");
+    T=transmission(m);
+    return T;
+    }
+function scatter_power(){
+#f=getdata("Begin Power","f");
+#wl = c/f*1e9;
+#bp = trans("Begin Power");
+tp = trans("Transmitted Power");
+sp = trans('Scattered Power');
+sp2 = trans('Scattered Power(2)');
+
+#avg_bp = transmission_avg("Begin Power");
+avg_tp = transmission_avg("Transmitted Power");
+avg_sp = transmission_avg("Scattered Power");
+avg_sp2 = transmission_avg("Scattered Power(2)");
+avg_rp = transmission_avg("Reflect Power");
+
+#pct_bp = avg_bp * 100;
+pct_tp = avg_tp * 100;
+pct_sp = avg_sp * 100;
+pct_sp2 = avg_sp2 * 100;
+pct_rp = avg_rp * 100;
+
+#print("Begin power       = " + num2str(pct_bp) + "%");
+print("[T,R,S] = [" + num2str(pct_tp, "%.2f") + "%," + num2str(-(pct_rp), "%.2f") + "%," + num2str(pct_sp, "%.2f") + "%]");
+
+
+result = {
+    #'bp':pct_bp,
+    'tp':pct_tp,
+    'sp':pct_sp,
+    'sp2': pct_sp2,
+    'sp_band': sp,
+    'rp':pct_rp
+    };
+
+return result;
+}
+
+function sweep(sim,var_list_,result_) {
+    i = 1;
+    f_dog = 0; 
+    for (x=var_list_) {
+        print("\nprogress= " + num2str(i/length(var_list_)*100,"%.2f")+"%");
+        sim.etch = nm(x);
+        config_2D(sim); 
+        run;   
+          
+        temp = scatter_power();
+        result_.rp_list(i)     = temp.rp;
+        result_.tp_list(i)     = temp.tp;
+        result_.sp_list(i)     = temp.sp;
+        result_.sp2_list(i)    = temp.sp2;
+        result_.data_array(i,:) = temp.sp_band;
+        if (!f_dog){
+            f = f=getdata("Scattered Power","f");
+            result_.wl_nm = c/f*1e9;
+            f_dog = 1;        
+        }
+        switchtolayout;    
+        i = i + 1;
+    }
+    
+   return result_;
+}
+
+function info() {
+    #
+    # 1) Retrieve spectral data
+    #
+    f   = getdata("Begin Power", "f");        # Frequency (Hz)
+    wl  = c/f * 1e9;                          # Wavelength (nm)
+
+    #bp  = trans("Begin Power");               # Begin Power vs. wl
+    rp  = trans("Reflect Power");             # Reflect Power vs. wl
+    tp  = trans("Transmitted Power");         # Transmitted Power vs. wl
+    sp  = trans("Scattered Power");           # Scattered Power vs. wl
+    sp2 = trans("Scattered Power(2)");        # Scattered Power(2) vs. wl
+
+    #
+    # 2) Retrieve average (scalar) transmissions
+    #
+    # avg_bp  = transmission_avg("Begin Power");
+    avg_rp  = transmission_avg("Reflect Power");
+    avg_tp  = transmission_avg("Transmitted Power");
+    avg_sp  = transmission_avg("Scattered Power");
+    avg_sp2 = transmission_avg("Scattered Power(2)");
+
+    #
+    # 3) Send data arrays to MATLAB
+    #
+    matlabput(wl, rp, tp, sp, sp2);
+    matlab("
+        if length(wl) > 20
+        ls = '-';
+        else
+        ms=8;
+        ls = '--d';
+        end
+        scat_c  = [0 0.7 0.7];
+        trans_c = 'black';
+        ref_c   = [0.2 0.7 0.2];
+        fs = 18;  
+        
+        figure;
+        
+        plot(wl, abs(rp), ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', ref_c,  'DisplayName', 'Reflect Power'); hold on;
+        plot(wl, tp,       ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', trans_c,'DisplayName', 'Transmitted Power');
+        plot(wl, sp,       ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power');
+        plot(wl, sp2,     '--', 'LineWidth', 4, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power(2)');
+        
+        xlabel('Wavelength (nm)', 'FontSize', fs);
+        ylabel('Normalized Power', 'FontSize', fs);
+        title('info');
+        legend('Location', 'best', 'FontSize', fs);
+        set(gca, 'FontSize', fs);  % applies to tick labels
+        grid on;
+    ");
+
+
+    pct_rp  = avg_rp  * 100;
+    pct_tp  = avg_tp  * 100;
+    pct_sp  = avg_sp  * 100;
+    pct_sp2 = avg_sp2 * 100;
+
+    print("Reflect power      = " + num2str(pct_rp)  + "%");
+    print("Transmitted power  = " + num2str(pct_tp)  + "%");
+    print("Scattered power    = " + num2str(pct_sp)  + "%");
+    print("Scattered(2) power = " + num2str(pct_sp2) + "%");
+}
+
+function mat_var_scalar(var_list,result,font_size){
+    matlabput(var_list,result,font_size);
+    matlab(
+        "
+        fs = font_size;
+        scat_c  = [0 0.7 0.7];
+        trans_c = 'black';
+        ref_c   = [0.2 0.7 0.2];
+        ms = 8;
+        
+        if length(var_list) > 20
+            ls = '-';
+        else
+            ls = '-d';  % changed from '--d' to '-d'
+        end
+        
+        label_map = struct( ...
+            'rp',  {{'Reflect Power',     ref_c}}, ...
+            'tp',  {{'Transmitted Power', trans_c}}, ...
+            'sp',  {{'Scattered Power',   scat_c}}, ...
+            'sp2', {{'Scattered Power(2)',scat_c}} ...
+        );
+        
+        keys = fieldnames(result);
+  
+        %close;
+        figure;hold on;
+
+        
+        for i = 1:length(keys)
+            key = keys{i};
+            
+            if endsWith(key, '_list')
+                short_key = extractBefore(key, '_list');
+                
+                if isfield(label_map, short_key)
+                    label = label_map.(short_key){1};
+                    color = label_map.(short_key){2};
+                    y = result.(key);
+                    
+                    if strcmp(short_key, 'sp2')
+                        plot(var_list, y, '--', ...
+                            'LineWidth', 4, ...
+                            'MarkerSize', ms, ...
+                            'Color', color, ...
+                            'DisplayName', label);
+                    else
+                        plot(var_list, y, ls, ...
+                            'LineWidth', 2, ...
+                            'MarkerSize', ms, ...
+                            'Color', color, ...
+                            'DisplayName', label);
+                    end
+                else             
+                    %disp(short_key);
+                    y = result.(key);
+                    plot(var_list, y, ls, ...
+                        'LineWidth', 4, ...
+                        'MarkerSize', ms, ...
+                        'DisplayName', short_key);
+                end
+            end
+        end
+        
+        xlabel('Parameter Value', 'FontSize', fs);
+        ylabel('Average Percent Power', 'FontSize', fs);
+        legend('Location', 'best', 'FontSize', fs);
+        set(gca, 'FontSize', fs);
+        grid on;
+        "
+     );
+    
+    
+}
+
+function mat_var_functional(x_,data_matrix_,font_size){
+        matlabput(x_,data_matrix_,font_size);
+        matlab(
+        "
+        x_disp = x_;   
+        dispersion =  data_matrix_;         
+        fs = font_size;                      
+        [N, M] = size(data_matrix);   
+        
+        if length(x_disp) ~= M
+            error('Length of x_disp must match the number of columns in data_matrix.');
+        end
+        if length(var_list) ~= N
+            error('Length of var_list must match the number of rows in data_matrix.');
+        end
+        
+        figure;
+        hold on;
+        
+        if length(x_disp) > 20
+            ls = '-';
+        else
+            ls = '-d';
+        end
+        
+        for j = 1:N
+            y = dispersion(j, :);
+            label = string(var_list(j));
+            plot(x_disp, y, ls, 'LineWidth', 2, 'DisplayName', label);
+        end
+        xlabel('Parameters', 'FontSize', fs);
+        ylabel('y', 'FontSize', fs);
+        legend('Location', 'best', 'FontSize', fs);
+        set(gca, 'FontSize', fs);
+        grid on;
+        "
+        );           
+    }
+    
+function mat_x_y(xx,yy,fontsize){
+    matlabput(xx,yy,fontsize)  ;
+    matlabplot(
+    "
+    fs = fontsize;
+    
+    if length(xx) > 20
+        ls = '-';
+    else
+        ls = '-d';
+    end
+    
+    close;
+    figure;
+    plot(xx, yy, ls, 'LineWidth', 2, 'MarkerSize', 8, 'Color', 'b', 'DisplayName', 'Data');
+    xlabel('x', 'FontSize', fs);
+    ylabel('y', 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+    grid on;  
+    "    
+    );  
+    
+    }

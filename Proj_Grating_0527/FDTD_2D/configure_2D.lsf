@@ -1,0 +1,314 @@
+function um(x) { return x*1e-6; }
+
+function nm(x) { return x*1e-9; }
+
+
+function init(){
+    temp = {
+    'F0'          : 0.9,
+    'R'           : 0.025/um(1),#um-1
+    'Le0'         : nm(60),
+    "S"           : nm(1000),
+    "wg_width"    : nm(800),
+    "etch"        : nm(150),
+    "N"           : 25,
+    "ida"         : nm(1550),
+    "ida_width"   : nm(100),
+    "f_pts"       : 500,
+    "auto_shutoff": .1/100,
+    "mesh_acc"    : 4,
+    "movie"       : 0,
+    "movie_scale" : 0.75,
+    "y_pixcel"    : 1500,
+    "sample_rate" : 30,
+    "CW"          : 1,
+    "sim_time"    : 1000,
+    "core_mat"    : "2% Long Anneal",
+    "sub_mat"     : "THOX",
+    "clad_mat"    : "Air",
+    "box_mat"     : "THOX"
+    };
+    return temp;
+}
+
+
+
+function make_waveguide(wg_length, wg_width, wg_height, r, mat, basename) {
+    addrect;
+    set("name", basename); 
+    set("x", r(1));                  
+    set("z", r(2));                  # now height becomes y → z (after rotation)
+    set("y", r(3));                  # now vertical becomes horizontal
+    set("x span", wg_length);
+    set("z span", wg_width);         # formerly y span
+    set("y span", wg_height);        # formerly z span
+    set("material", mat);
+}
+
+    
+function Pconfig(){ 
+    set('standard fourier transform',1);
+    set('total spectral average',1);
+    set("output power",1);
+    set("output Ex",0);
+    set("output Ey",0);
+    set("output Ez",0);
+    set("output Hx",0);
+    set("output Hy",0);
+    set("output Hz",0);
+    set("output Px",1);
+    set("output Py",1);
+    set("output Pz",0);     
+}
+
+
+function apodize(sim){
+    # Load the parameters from sim    
+    F0        = sim.F0;
+    Le0       = sim.Le0;
+    N         = sim.N;
+    etch      = sim.etch;
+    wg_width  = sim.wg_width;
+    S         = sim.S;
+    core_mat  = sim.core_mat;
+    R         = sim.R;
+    
+    # Grating Setup
+    r      = [um(2), 0, 0];      
+    addstructuregroup;
+    set("name", "Grating");
+    F = F0;
+    Le= Le0;
+    Lo= Le0*(F)/(1-F);
+    dz = 0; 
+    #########################
+    for (i=1:1:N) {
+        #print( "(" + num2str(i) + ", " + num2str(Le*1e9) + ", " + num2str(Lo*1e9) + ")");
+        # Etched
+        r(3) = -etch/2;               
+        baseE = "tooth_E" + num2str(i);
+        make_waveguide(Le, wg_width, S - etch, r, core_mat, baseE);
+        set('override mesh order from material database',1);
+        set('mesh order',1);
+        addtogroup("Grating");
+        r(1) = r(1) + (Lo + Le)/2;
+        # Not Etched
+        r(3) = 0;      
+        baseO = "tooth_O" + num2str(i);
+        make_waveguide(Lo, wg_width, S , r, core_mat, baseO);
+        set('override mesh order from material database',1);
+        set('mesh order',1);
+        addtogroup("Grating");
+        dz = dz+Lo+Le;        
+        # Apodized for the next
+        F = F0-R*dz;
+        Le = (Lo+Le)*(1-F);
+        r(1) = r(1) + (Lo+Le)/2;
+        Lo = Le*(F)/(1-F);   
+    }
+    #########################
+    return dz; # dz is the total length 
+    }
+
+function config_2D(sim){
+##
+
+#Below are the five geo parameters that I would like to vary
+# 
+###########################
+# Parameters
+F0        = sim.F0;
+Le0       = sim.Le0;
+R         = sim.R;
+
+S         = sim.S;
+wg_width  = sim.wg_width;
+etch      = sim.etch;
+N         = sim.N;
+ida       = sim.ida;
+ida_width = sim.ida_width;
+CW        = sim.CW;
+
+sim_time  = sim.sim_time*1e-15;
+auto_shutoff = sim.auto_shutoff;
+movie     = sim.movie;
+mesh_acc  = sim.mesh_acc;
+movie_scale = sim.movie_scale;
+y_pix     = sim.y_pixcel;
+sample_rate = sim.sample_rate;
+f_pts     = sim.f_pts;
+
+core_mat  = sim.core_mat;
+sub_mat   = sim.sub_mat;
+clad_mat  = sim.clad_mat;
+box_mat   = sim.box_mat;
+
+deleteall;
+
+#############################
+# Substrate
+sub_width  = um(20);
+sub_height = um(10);
+clad_height = nm(720);
+ymin       = um(-4);    # originally zmin
+ymax       = um(4);     # originally zmax
+
+# Grating Setup
+
+r      = [um(2), 0, 0];      
+r_ = r;
+r_(1) = r_(1)*0.5-Le0/2;
+
+total_len_ = apodize(sim);
+total_len = total_len_ + 2*um(2);
+
+g_i = um(2) - Le0/2;   #Grating Begin
+g_f = g_i + total_len_;# Ends at
+print("Grating length = " + num2str(total_len_ / 1e-6) + " µm");
+
+# Substrate
+substrate_center = [total_len/2, 0, -sub_height/2 - S/2];
+make_waveguide(2*total_len, sub_width, sub_height, substrate_center, sub_mat, "Substrate");
+set('override mesh order from material database',1);
+set('mesh order',3);
+# Box-Bottom
+box_height = nm(700);
+box_center = [total_len/2, 0, -box_height/2 - S/2];
+make_waveguide(2*total_len, sub_width, box_height, box_center, box_mat, "Box");
+set('override mesh order from material database',1);
+set('mesh order',2);
+# Clad
+clad_center = [total_len/2, 0, clad_height/2];
+make_waveguide(2*total_len, sub_width, clad_height+S, clad_center, clad_mat, "Clad");
+set('override mesh order from material database',1);
+set('mesh order',3);
+
+# Input Wg
+make_waveguide(um(2), wg_width, S, r_, core_mat, 'in_strt_wg');set('x min',um(-15));
+set('override mesh order from material database',1);
+set('mesh order',1);
+
+# Output Wg
+make_waveguide(um(2), wg_width, S, r, core_mat, 'out_strt_wg');
+set('x min',total_len-um(2)-Le0/2);
+set('x max',total_len-um(-15));
+set('override mesh order from material database',1);
+set('mesh order',1);
+
+
+
+if (!CW) {
+setglobalsource('set wavelength',1);
+setglobalsource("center wavelength", ida);
+setglobalsource("wavelength span",  ida_width);
+}
+else{
+    setglobalsource('set time domain',1);
+    setglobalsource('pulse type','standard');
+    setglobalsource('pulselength',1e20);
+    setglobalsource('frequency',c/ida);
+}
+
+
+
+# Set FDTD
+addfdtd;
+set("dimension",1);  
+set("x",total_len/2);
+set("x span",total_len*1.4);
+set("y",0);
+set("y span",sub_width/2);
+set("Z",0);
+set('simulation time', sim_time);
+set('auto shutoff min',auto_shutoff);
+set('mesh accuracy',mesh_acc);
+
+# Fine Mesh(Optional)
+
+
+
+# Set Input
+addport;
+set("x",-um(2));
+set("y span", 2*S);
+set("name","input TE mode"); 
+set('mode selection','fundamental TM mode');
+
+setglobalmonitor('frequency points',f_pts);
+addindex;
+set('name','neff');
+set('use source limits',0);
+set('wavelength center',ida);
+set('monitor type','2D z-normal');
+set('x',total_len/2);
+set("y", 0);
+set("z", 0);
+set("y span", 4*wg_width);                      
+set("x span",total_len*1.2);   
+
+if (movie){
+addmovie;
+set('monitor type','2D Z-normal');
+set('name','movie');
+set("x", total_len/2);
+set("x span", 2*total_len);    
+set("y span", um(8));           
+set('scale',movie_scale);
+set("horizontal resolution", y_pix); 
+set('lock aspect ratio',1);       
+set('min sampling per cycle',sample_rate);   
+#set("vertical resolution", 400);              
+}
+
+
+addpower;
+set('name','Scattered Power');
+set('monitor type','2D Y-Normal');
+set('x min',um(2));
+set('x max',total_len-um(2)-Le0/2);
+set('y',S/2+nm(200));
+Pconfig;
+
+addpower;
+set('name','Scattered Power(2)');
+set('monitor type','2D Y-Normal');
+set('x',total_len/2);
+set('x min',um(2));
+set('x max',total_len-um(2)-Le0/2);
+set('y',S/2+clad_height+um(0.3));
+Pconfig;
+
+
+addpower;
+set('name','Begin Power');
+set('monitor type','2D X-Normal');
+set('x',g_i-um(2));
+set('y',0);
+set("y span",S);   
+Pconfig;
+
+addpower;
+set('name','Reflect Power');
+set('monitor type','2D X-Normal');
+set('x',um(-3));
+set('y',0);
+set("y span",S);   
+Pconfig;
+
+addpower;
+set('name','Transmitted Power');
+set('monitor type','2D X-Normal');
+set('x',g_f+um(2));
+set('y',0);
+set("y span",S);   
+Pconfig;
+
+
+
+
+
+print('config done');
+}
+
+
+

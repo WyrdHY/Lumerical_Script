@@ -1,0 +1,174 @@
+function make_waveguide(wg_length, wg_width, wg_height, r, mat, basename) {
+    addrect;
+    set("name", basename); 
+    set("x", r(1));                  
+    set("z", r(2));                  # now height becomes y → z (after rotation)
+    set("y", r(3));                  # now vertical becomes horizontal
+    set("x span", wg_length);
+    set("z span", wg_width);         # formerly y span
+    set("y span", wg_height);        # formerly z span
+    set("material", mat);
+}
+
+function trans(m){
+    #f=getdata(m,"f");
+    T=transmission(m);
+    return T;
+    }
+function Pconfig(){ 
+    set('standard fourier transform',1);
+    set('total spectral average',1);
+    set("output power",1);
+    set("output Ex",0);
+    set("output Ey",0);
+    set("output Ez",0);
+    set("output Hx",0);
+    set("output Hy",0);
+    set("output Hz",0);
+    set("output Px",0);
+    set("output Py",0);
+    set("output Pz",0);     
+}
+function um(x) { return x*1e-6; }
+function nm(x) { return x*1e-9; }
+##
+
+#Below are the five parameters that I would like to vary
+###########################
+# Grating Parameters
+Lo  = nm(250);           
+Le  = nm(250);          
+S   = nm(1000);  
+wg_width = nm(1000);      
+etch     = nm(300);
+#############################
+# Substrate
+sub_width  = um(20);
+sub_height = um(10);
+ymin       = um(-4);    # originally zmin
+ymax       = um(4);     # originally zmax
+
+# Grating Setup
+N      = 20;
+r      = [0, 0, 0];      
+mat    = "2% Long Anneal";
+
+
+
+
+
+movie = 0;
+# Create group
+try {
+    select('Substrate');
+    delete;
+    select('Grating');
+    delete;
+}
+deleteall;
+
+addstructuregroup;
+set("name", "Grating");
+
+for (i=1:1:N) {
+    baseO = "tooth_O" + num2str(i);
+    make_waveguide(Lo, wg_width, S, r, mat, baseO);
+    addtogroup("Grating");
+
+    r(1) = r(1) + (Lo + Le)/2;
+    r(3) = -etch/2;               # now y offset (was z)
+    
+    baseE = "tooth_E" + num2str(i);
+    make_waveguide(Le, wg_width, S - etch, r, mat, baseE);
+    addtogroup("Grating");
+
+    r(3) = 0;
+    r(1) = r(1) + (Lo + Le)/2;
+}
+
+total_len = N * (Lo + Le);
+print("total length = " + num2str(total_len / 1e-6) + " µm");
+
+substrate_center = [total_len/2 - Lo/2, 0, -sub_height/2 - S/2];
+make_waveguide(total_len, sub_width, sub_height, substrate_center, "THOX", "Substrate");
+
+
+
+# Optics
+ida = nm(532);
+setglobalsource('set wavelength',1);
+setglobalsource("center wavelength", ida);
+setglobalsource("wavelength span",  nm(250));
+
+addfdtd;
+set("dimension",1);  
+set("x",total_len/2);
+set("x span",total_len*1.4);
+set("y",0);
+set("y span",sub_width/2);
+set("Z",0);
+
+
+set('auto shutoff min',0.1/100);
+set('mesh accuracy',2);
+
+addport;
+set("x",-Lo/2+nm(0.1));
+set("name","input TE mode"); 
+set('mode selection','fundamental TE');
+
+addindex;
+set('use source limits',0);
+set('wavelength center',ida);
+set('monitor type','2D z-normal');
+set('x',total_len/2);
+set("y", 0);
+set("z", 0);
+set("y span", 4*wg_width);                      
+set("x span",total_len*1.2);   
+
+if (movie){
+addmovie;
+set('monitor type','2D Z-normal');
+set("x", total_len/2-Lo/2);
+set("x span", 2*total_len);          
+set('scale',0.3);
+set("horizontal resolution", 800); 
+set('lock aspect ratio',1);             
+#set("vertical resolution", 400);              
+}
+
+addpower;
+set('name','Scattered Power');
+set('monitor type','Linear X');
+set('x',total_len/2);
+set("x span",total_len*1.2);   
+set('y',1.2*S);
+Pconfig;
+
+addpower;
+set('name','Begin Power');
+set('monitor type','Linear Y');
+set('x',Lo);
+set('y',0);
+set("y span",um(10));   
+Pconfig;
+
+addpower;
+set('name','Transmitted Power');
+set('monitor type','Linear Y');
+set('x',total_len*.75);
+set('y',0);
+set("y span",um(10));   
+Pconfig;
+
+
+
+
+
+print('done');
+
+
+
+
+

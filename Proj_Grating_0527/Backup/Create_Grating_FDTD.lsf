@@ -1,0 +1,116 @@
+
+function make_waveguide(wg_length, wg_width, wg_height, r, mat,basename) {
+    addrect;
+    set("name", basename); 
+    set("x", r(1));                  # X-center position
+    set("y", r(2));                  # Y-center position
+    set("z", r(3));                  # Z-center position
+    set("x span", wg_length);
+    set("y span", wg_width);
+    set("z span", wg_height);
+    set("material", mat);
+    #@set("group", "Grating");
+}
+
+function um(x) {
+    return x*1e-6;
+}
+
+function nm(x) {
+    return x*1e-9;
+}
+
+
+# Geo
+Lo  = nm(250);           
+Le = nm(250);          
+S = nm(1000);  
+wg_width = nm(1000);      
+etch = nm(300);
+
+sub_width =um(20);
+sub_height =um(10);
+zmin=um(-4);
+zmax=um(4);
+
+N = 20;
+r = [0, 0, 0];      
+mat = "2% Long Anneal";
+
+
+
+try{
+select('Substrate');
+delete;
+select('Grating');
+delete;
+}
+deleteall;
+
+
+
+addstructuregroup;
+set("name","Grating");
+for (i=1:1:N) {    # O
+    baseO = "tooth_O" + num2str(i);
+    make_waveguide(Lo, wg_width, S, r, mat,baseO);
+    addtogroup("Grating");
+    r(1) = r(1) + (Lo+Le)/2;
+    r(3) = -etch/2;
+    # E
+    baseE = "tooth_E" + num2str(i);
+    make_waveguide(Le, wg_width, S-etch, r, mat,baseE);
+    addtogroup("Grating");
+    r(3) = 0;
+    r(1) = r(1) + (Lo+Le)/2;
+}
+total_len = N * (Lo + Le);
+print("total length = " + num2str(total_len/1e-6) + " µm");
+
+make_waveguide(total_len, sub_width, sub_height, [total_len/2-Lo/2,0,-sub_height/2-S/2], "THOX","Substrate");
+
+
+
+
+# Optics
+ida = nm(532);
+setglobalsource('set wavelength',1);
+setglobalsource("center wavelength", ida);
+setglobalsource("wavelength span",  nm(25));
+
+addfdtd;
+set("dimension",2);  
+set("x",total_len/2);
+set("x span",total_len*1.4);
+set("y",0);
+set("y span",sub_width);
+set("z min",zmin);
+set("z max",zmax);
+set('y min bc','anti-symmetric');
+set('auto shutoff min',5/100);
+set('mesh accuracy',2);
+
+addport;
+set("x",-Lo/2+nm(0.1));
+set("name","input TE mode"); 
+set('mode selection','fundamental TE');
+
+addindex;
+set('use source limits',0);
+set('wavelength center',ida);
+set('monitor type','2D X-normal');
+set('x',Lo/4);
+set("y", 0);
+set("z", 0);
+set("y span", 4*wg_width);                      
+set("z span", 4*S);       
+
+addmovie;
+set('monitor type','2D Y-normal');
+set("x", total_len/2-Lo/2);
+set("x span", 2*total_len);          
+set("z span", um(12));              
+set('scale',0.3);
+set("horizontal resolution", 800); 
+set('lock aspect ratio',1);             
+#set("vertical resolution", 400);              

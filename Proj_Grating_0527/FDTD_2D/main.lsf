@@ -1,0 +1,90 @@
+# Reset Everything
+if (1){
+clear;
+clc;
+clearfunctions;
+deleteall;
+}
+# Import Other .lsf file
+configure_2D;
+anlyze;
+
+# Parameters
+sim = init();
+
+# Optics
+sim.CW = 0;
+sim.ida = nm(1550);
+sim.ida_width = nm(1);
+
+# Grating
+sim.N = 24;
+sim.Le0 = nm(300);
+sim.F0 = 0.5;
+sim.R = 0;#0.025/um(1);
+sim.S = nm(260);
+sim.etch = nm(80);
+
+# Accuracy
+sim.mesh_acc = 8;
+
+sim.movie = 1;
+sim.clad_mat = "SiO2 (Glass) - Palik";
+sim.box_mat = "SiO2 (Glass) - Palik";
+sim.sub_mat = "Si (Silicon) - Palik";
+sim.core_mat = "Si (Silicon) - Palik";
+sim.sim_time = sim.sim_time/(10^sim.CW);
+
+pro = 0;
+
+
+
+# Sweep
+if (pro){
+    var_list = 100:10:130;
+    temp_map = {
+        "wl_nm"      : zeros(sim.f_pts),
+        "rp_list"    : var_list,
+        "tp_list"    : var_list,
+        "sp_list"    : var_list,
+        "sp2_list"   : var_list,
+        # Scatter power dispersion
+        "data_array" : zeros(length(var_list), sim.f_pts)
+    };
+    
+    result = sweep(sim,var_list,temp_map);
+    mat_var_scalar(var_list,result,14);
+    mat_var_functional(result.wl_nm,result.data_array,14);
+}
+else{
+    config_2D(sim);    
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

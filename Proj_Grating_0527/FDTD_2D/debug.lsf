@@ -1,0 +1,17 @@
+# Import
+configure_2D;
+anlyze;
+
+# Debug 1
+## 
+x = getdata('Scattered Power','x');
+
+##
+y = {
+    #"Py_list": getdata('Scattered Power','Py_avg'),
+    "Py2_list": getdata('Scattered Power(2)','Py_avg')   
+    }; 
+    
+    
+matlab("close;");   
+mat_var_scalar(x,y,14);

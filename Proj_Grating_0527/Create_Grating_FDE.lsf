@@ -1,0 +1,101 @@
+
+function make_waveguide(wg_length, wg_width, wg_height, r, mat,basename) {
+    addrect;
+    set("name", basename); 
+    set("x", r(1));                  # X-center position
+    set("y", r(2));                  # Y-center position
+    set("z", r(3));                  # Z-center position
+    set("x span", wg_length);
+    set("y span", wg_width);
+    set("z span", wg_height);
+    set("material", mat);
+    #@set("group", "Grating");
+}
+
+function um(x) {
+    return x*1e-6;
+}
+
+function nm(x) {
+    return x*1e-9;
+}
+
+
+# Geo
+Lo  = nm(400);           
+Le = nm(400);          
+S = nm(2000);  
+wg_width = nm(2000);      
+etch = nm(200);
+
+sub_width =um(20);
+sub_height =um(10);
+zmin=um(-6);
+zmax=um(4);
+
+N = 20;
+r = [0, 0, 0];      
+mat = "2% Long Anneal";
+
+x_loc = Lo*1.2;
+
+
+
+try{
+select('Substrate');
+delete;
+select('Grating');
+delete;
+}
+deleteall;
+
+
+
+addstructuregroup;
+set("name","Grating");
+for (i=1:1:N) {    # O
+    baseO = "tooth_O" + num2str(i);
+    make_waveguide(Lo, wg_width, S, r, mat,baseO);
+    addtogroup("Grating");
+    r(1) = r(1) + (Lo+Le)/2;
+    r(3) = -etch/2;
+    # E
+    baseE = "tooth_E" + num2str(i);
+    make_waveguide(Le, wg_width, S-etch, r, mat,baseE);
+    addtogroup("Grating");
+    r(3) = 0;
+    r(1) = r(1) + (Lo+Le)/2;
+}
+total_len = N * (Lo + Le);
+print("total length = " + num2str(total_len/1e-6) + " µm");
+
+make_waveguide(total_len, sub_width, sub_height, [total_len/2-Lo/2,0,-sub_height/2-S/2], "THOX","Substrate");
+
+
+
+
+
+
+
+addfde;
+set('solver type','2D X normal');
+set('x',x_loc);
+set("y", 0);
+set("z", 0);
+set("y span", 4*wg_width);                      
+set("z span", 4*S);       
+set('y min bc','anti-symmetric');
+
+addmesh;
+set('x',x_loc);
+set("y", 0);
+set("z", 0);
+set("x span", nm(10));                      
+set("y span", 1.5*wg_width);                      
+set("z span", 1.5*S);    
+set("dy", nm(50));    
+set("dz", nm(50));    
+
+   
+
+               
