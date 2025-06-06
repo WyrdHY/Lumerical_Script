@@ -33,7 +33,7 @@ sim.sim_time = sim.sim_time/(10^sim.CW);
 
 ##
 sim = init_Si();
-sim.etch = nm(160);
+sim.etch = nm(70);
 
 # Optics
 sim.CW = 0;
@@ -45,7 +45,7 @@ sim.f_pts = 2;
 sim.mesh_acc = 8;
 sim.movie = 0;
 sim.movie_scale = 1;
-sim.sweep = 1;
+sim.sweep = 0;
 
 
 

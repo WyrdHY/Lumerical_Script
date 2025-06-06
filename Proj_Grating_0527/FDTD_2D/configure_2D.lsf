@@ -35,9 +35,9 @@ function init(){ # This is for silica platform
 function init_Si(){ # This is for silicon platform
     temp = {
     'F0'          : 0.5,
-    'R'           : 0.0/um(1),#um-1
-    'Le0'         : nm(300),
-    "S"           : nm(260),# Thickness of the waveguide
+    'R'           : 0.00/um(1),#um-1
+    'Le0'         : nm(317),
+    "S"           : nm(220),# Thickness of the waveguide
     "wg_width"    : nm(800),
     "etch"        : nm(160),
     "N"           : 25,

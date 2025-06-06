@@ -4,8 +4,36 @@ anlyze;
 
 # Debug 1
 ## 
-x = getdata('Scattered Power','x');
 
+x = getdata('Scattered Power','x');
+y = {
+    #"Py_list": getdata('Scattered Power','Py_avg'),
+    "Py2_list": getdata('Scattered Power(2)','Py_avg')   
+    }; 
+    
+   
+matlab("close;"); 
+temp_y = y.Py2_list;
+matlabput(x,temp_y);
+matlab("
+% Normalize temp_y
+norm_y = temp_y / max(temp_y);
+
+% Font size control
+fs = 18;
+
+% Plot
+figure; hold on;
+plot(x*1e6, norm_y, '-s', 'LineWidth', 2, 'MarkerSize', 4, 'DisplayName', 'Normalized Data');
+xlabel('x', 'FontSize', fs);
+ylabel('Normalized Intensity', 'FontSize', fs);
+%title('Normalized Y vs. X', 'FontSize', fs);
+legend('Location', 'best', 'FontSize', fs);
+set(gca, 'FontSize', fs);
+grid on;
+
+");
+#mat_var_scalar(x,y,14);
 ##
 x = getdata('Scattered Power','x');
 y = {
@@ -13,13 +41,13 @@ y = {
     "Py2_list": getdata('Scattered Power(2)','Py_avg')   
     }; 
     
-    
-matlab("close;");   
-mat_var_scalar(x,y,14);
+mmatrix = zeros(2, length(x));
+mmatrix(1,:) = x;
+mmatrix(2,:) = y.Py2_list;
+plot(mmatrix(1,:),mmatrix(2,:));
 ##
-
-
-
+qwe=getresult('Scattered Power(2)','T');
+##
 #select('FDTD::ports::input TE mode');
 #a=get('source port');
 #?getresult('FDTD::ports::input TE mode');
