@@ -7,11 +7,24 @@ anlyze;
 x = getdata('Scattered Power','x');
 
 ##
+x = getdata('Scattered Power','x');
 y = {
-    #"Py_list": getdata('Scattered Power','Py_avg'),
+    "Py_list": getdata('Scattered Power','Py_avg'),
     "Py2_list": getdata('Scattered Power(2)','Py_avg')   
     }; 
     
     
 matlab("close;");   
 mat_var_scalar(x,y,14);
+##
+
+
+
+#select('FDTD::ports::input TE mode');
+#a=get('source port');
+#?getresult('FDTD::ports::input TE mode');
+
+#nn = getresult('FDTD::ports::input TE mode','neff');
+#getvariable('nn');
+print(real(nn.neff));
+

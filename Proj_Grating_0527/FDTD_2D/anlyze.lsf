@@ -3,6 +3,39 @@ function trans(m){
     T=transmission(m);
     return T;
     }
+
+function no_ne(sim){
+    ans = {
+        "no" : 0,
+        "ne" : 0
+        };
+    addport;
+    set("x",-um(2));
+    set("y span", 2*sim.S);
+    set("name","Temp"); 
+    set('mode selection','fundamental TM mode');   
+    no_ = getresult('FDTD::ports::Temp','neff');
+    no  = real(no_.neff);
+
+    set("x",um(2));
+    ne_ = getresult('FDTD::ports::Temp','neff');
+    ne  = real(ne_.neff);
+
+    ida_str = num2str(round(sim.ida*1e9), "%d");
+    print("no(" + ida_str + "nm) = " + num2str(no, "%.15g"));  
+    print("ne(" + ida_str + "nm) = " + num2str(ne, "%.15g"));
+    
+    
+    select('FDTD::ports::Temp');
+    delete;
+    
+    ans.no = no;
+    ans.ne = ne;
+       
+    return ans;
+}    
+    
+
 function scatter_power(){
 #f=getdata("Begin Power","f");
 #wl = c/f*1e9;
@@ -10,12 +43,19 @@ function scatter_power(){
 tp = trans("Transmitted Power");
 sp = trans('Scattered Power');
 sp2 = trans('Scattered Power(2)');
+rp = trans('Reflect Power');
 
-#avg_bp = transmission_avg("Begin Power");
+if (length(sp)==1) {
+avg_tp = tp;
+avg_sp = sp;
+avg_sp2 = sp2;
+avg_rp = rp;
+}
+else{
 avg_tp = transmission_avg("Transmitted Power");
 avg_sp = transmission_avg("Scattered Power");
 avg_sp2 = transmission_avg("Scattered Power(2)");
-avg_rp = transmission_avg("Reflect Power");
+avg_rp = transmission_avg("Reflect Power");}
 
 #pct_bp = avg_bp * 100;
 pct_tp = avg_tp * 100;
@@ -29,11 +69,13 @@ print("[T,R,S] = [" + num2str(pct_tp, "%.2f") + "%," + num2str(-(pct_rp), "%.2f"
 
 result = {
     #'bp':pct_bp,
-    'tp':pct_tp,
-    'sp':pct_sp,
-    'sp2': pct_sp2,
-    'sp_band': sp,
-    'rp':pct_rp
+    'tp':pct_tp, # Scaler
+    'sp':pct_sp, # Scaler
+    'sp2': pct_sp2, # Scaler
+    'sp_band': sp,  # sp(f)
+    'rp':pct_rp    # 
+    #'spavg':spavg,
+    #'spavg2': sp2avg
     };
 
 return result;
@@ -44,8 +86,16 @@ function sweep(sim,var_list_,result_) {
     f_dog = 0; 
     for (x=var_list_) {
         print("\nprogress= " + num2str(i/length(var_list_)*100,"%.2f")+"%");
+        print("Var="+num2str(x));
         sim.etch = nm(x);
-        config_2D(sim); 
+        #sim.Le0 = nm(x)*(1-sim.F0); # Vary Period
+        #sim.Le0 = nm(480)*(1-sim.F0); # Vary F0 Fix Period
+        config_para = config_2D(sim); 
+        print(config_para);
+        
+        
+        
+        
         run;   
           
         temp = scatter_power();
@@ -54,11 +104,38 @@ function sweep(sim,var_list_,result_) {
         result_.sp_list(i)     = temp.sp;
         result_.sp2_list(i)    = temp.sp2;
         result_.data_array(i,:) = temp.sp_band;
+        
         if (!f_dog){
             f = f=getdata("Scattered Power","f");
             result_.wl_nm = c/f*1e9;
-            f_dog = 1;        
+            f_dog = 1;  
+            f_target = c / sim.ida;      
+            subject = abs(f - f_target) ;  
+            idx = find(subject,0)    ;
         }
+        
+        #DLC1     
+        try {   
+        py_x_var = "Py_x_var_"+num2str(x,"%.2f");
+        x = getdata('Scattered Power','x');
+        y = getdata('Scattered Power(2)','Py_avg');
+        }
+            
+        mmatrix = zeros(2, length(x));
+        mmatrix(1,:) = x;
+        mmatrix(2,:) = y;        
+        
+        result_.py_x_var = mmatrix;
+        
+        #DLC2
+        try {
+        T_ida = temp.sp_band;
+        result_.spida_list(i,:)=T_ida(idx);
+        }
+        
+        
+        
+
         switchtolayout;    
         i = i + 1;
     }
@@ -70,7 +147,7 @@ function info() {
     #
     # 1) Retrieve spectral data
     #
-    f   = getdata("Begin Power", "f");        # Frequency (Hz)
+    f   = getdata("Scattered Power", "f");        # Frequency (Hz)
     wl  = c/f * 1e9;                          # Wavelength (nm)
 
     #bp  = trans("Begin Power");               # Begin Power vs. wl
@@ -96,27 +173,40 @@ function info() {
         if length(wl) > 20
         ls = '-';
         else
-        ms=8;
+        
         ls = '--d';
         end
         scat_c  = [0 0.7 0.7];
         trans_c = 'black';
         ref_c   = [0.2 0.7 0.2];
         fs = 18;  
+        ms=8;
         
-        figure;
-        
-        plot(wl, abs(rp), ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', ref_c,  'DisplayName', 'Reflect Power'); hold on;
-        plot(wl, tp,       ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', trans_c,'DisplayName', 'Transmitted Power');
-        plot(wl, sp,       ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power');
-        plot(wl, sp2,     '--', 'LineWidth', 4, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power(2)');
-        
+        fig = figure;
+        set(fig, 'Position', [287   462   764   768]);  
+
+        subplot(2,1,1);
+        plot(wl, -rp, ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', ref_c,   'DisplayName', 'Reflect Power'); hold on;
+        plot(wl, tp,    ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', trans_c, 'DisplayName', 'Transmitted Power');
+        plot(wl, sp,    ls, 'LineWidth', 2, 'MarkerSize', ms, 'Color', scat_c,  'DisplayName', 'Scattered Power');
+        plot(wl, sp2,  '--', 'LineWidth', 4, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power(2)');
         xlabel('Wavelength (nm)', 'FontSize', fs);
         ylabel('Normalized Power', 'FontSize', fs);
-        title('info');
+        title('All Power Components', 'FontSize', fs);
         legend('Location', 'best', 'FontSize', fs);
-        set(gca, 'FontSize', fs);  % applies to tick labels
+        set(gca, 'FontSize', fs);
         grid on;
+        
+        subplot(2,1,2);
+        plot(wl, sp,   ls,  'LineWidth', 2, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power'); hold on;
+        plot(wl, sp2, '--', 'LineWidth', 4, 'MarkerSize', ms, 'Color', scat_c, 'DisplayName', 'Scattered Power(2)');
+        xlabel('Wavelength (nm)', 'FontSize', fs);
+        ylabel('Normalized Scattered Power', 'FontSize', fs);
+        title('Scattered Power Only', 'FontSize', fs);
+        legend('Location', 'best', 'FontSize', fs);
+        set(gca, 'FontSize', fs);
+        grid on;
+
     ");
 
 
@@ -157,21 +247,74 @@ function mat_var_scalar(var_list,result,font_size){
         keys = fieldnames(result);
   
         %close;
-        figure;hold on;
+        fig = figure;                 
+        set(fig, 'Position', [287   462   764   768]);  
 
+        %% -------- TOP AXIS : every curve ------------------------------------
+        ax1 = subplot(2,1,1); hold on;
         
         for i = 1:length(keys)
             key = keys{i};
-            
-            if endsWith(key, '_list')
-                short_key = extractBefore(key, '_list');
-                
+        
+            if endsWith(key,'_list')
+                short_key = extractBefore(key,'_list');
+                y         = result.(key);              % data vector
+        
+                % Look up label / colour if available
                 if isfield(label_map, short_key)
                     label = label_map.(short_key){1};
                     color = label_map.(short_key){2};
+                else
+                    label = short_key;
+                    color = 'k';                       % fallback colour
+                end
+        
+                % Style special case “sp2”, everything else identical
+                if strcmp(short_key,'sp2')
+                    plot(var_list, y, '--', ...
+                        'LineWidth', 4, ...
+                        'MarkerSize', ms, ...
+                        'Color', color, ...
+                        'DisplayName', label);
+                else
+                    plot(var_list, y, ls, ...
+                        'LineWidth', 2, ...
+                        'MarkerSize', ms, ...
+                        'Color', color, ...
+                        'DisplayName', label);
+                end
+            end
+        end
+        
+        xlabel('Parameter Value','FontSize',fs);
+        ylabel('Percentage Power','FontSize',fs);
+        title('All Power Components','FontSize',fs);
+        legend('Location','best','FontSize',fs);
+        set(ax1,'FontSize',fs); grid on;
+        
+        %% -------- BOTTOM AXIS : only sp & sp2 -------------------------------
+        ax2 = subplot(2,1,2); hold on;
+        
+        for i = 1:length(keys)
+            key = keys{i};
+        
+            if endsWith(key,'_list')
+                short_key = extractBefore(key,'_list');
+        
+                % Only plot scattered power curves
+                if strcmp(short_key,'sp') || strcmp(short_key,'sp2')
                     y = result.(key);
-                    
-                    if strcmp(short_key, 'sp2')
+        
+                    % Look up label / colour
+                    if isfield(label_map, short_key)
+                        label = label_map.(short_key){1};
+                        color = label_map.(short_key){2};
+                    else
+                        label = short_key;
+                        color = 'k';
+                    end
+        
+                    if strcmp(short_key,'sp2')
                         plot(var_list, y, '--', ...
                             'LineWidth', 4, ...
                             'MarkerSize', ms, ...
@@ -184,22 +327,19 @@ function mat_var_scalar(var_list,result,font_size){
                             'Color', color, ...
                             'DisplayName', label);
                     end
-                else             
-                    %disp(short_key);
-                    y = result.(key);
-                    plot(var_list, y, ls, ...
-                        'LineWidth', 4, ...
-                        'MarkerSize', ms, ...
-                        'DisplayName', short_key);
                 end
             end
         end
         
-        xlabel('Parameter Value', 'FontSize', fs);
-        ylabel('Average Percent Power', 'FontSize', fs);
-        legend('Location', 'best', 'FontSize', fs);
-        set(gca, 'FontSize', fs);
-        grid on;
+        xlabel('Parameter Value','FontSize',fs);
+        ylabel('Percentage Scattered Power','FontSize',fs);
+        title('Scattered Power Only','FontSize',fs);
+        legend('Location','best','FontSize',fs);
+        set(ax2,'FontSize',fs); grid on;
+        
+        %% -------- (optional) resize the figure window -----------------------
+        % set(fig,'Position',[100 100 1000 800]);   % [left bottom width height]
+        
         "
      );
     
@@ -207,13 +347,14 @@ function mat_var_scalar(var_list,result,font_size){
 }
 
 function mat_var_functional(x_,data_matrix_,font_size){
+    
         matlabput(x_,data_matrix_,font_size);
         matlab(
         "
         x_disp = x_;   
         dispersion =  data_matrix_;         
         fs = font_size;                      
-        [N, M] = size(data_matrix);   
+        [N, M] = size(dispersion);   
         
         if length(x_disp) ~= M
             error('Length of x_disp must match the number of columns in data_matrix.');

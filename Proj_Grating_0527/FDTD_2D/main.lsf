@@ -1,10 +1,13 @@
 # Reset Everything
-if (1){
+if (0){
 clear;
 clc;
 clearfunctions;
 deleteall;
+ct1=now;
+print((ct1));
 }
+
 # Import Other .lsf file
 configure_2D;
 anlyze;
@@ -12,52 +15,66 @@ anlyze;
 # Parameters
 sim = init();
 
+# Grating
+sim.N = 35;
+sim.F0 = 0.65;
+sim.Le0 = nm(480)*(1-sim.F0); #nm(48);
+sim.R = 0.025/um(1);#0.025/um(1);
+sim.S = nm(2000);
+sim.etch = nm(540);
+
+# Mat
+sim.clad_mat = "Air";
+sim.box_mat = "THOX";
+sim.sub_mat = "THOX";
+sim.core_mat = "2% Long Anneal";
+sim.sim_time = sim.sim_time/(10^sim.CW);
+
+
+##
+sim = init_Si();
+sim.etch = nm(160);
+
 # Optics
 sim.CW = 0;
 sim.ida = nm(1550);
-sim.ida_width = nm(1);
+sim.ida_width = nm(0);
+sim.f_pts = 2;
 
-# Grating
-sim.N = 24;
-sim.Le0 = nm(300);
-sim.F0 = 0.5;
-sim.R = 0;#0.025/um(1);
-sim.S = nm(260);
-sim.etch = nm(80);
-
-# Accuracy
+# Sim Config
 sim.mesh_acc = 8;
-
-sim.movie = 1;
-sim.clad_mat = "SiO2 (Glass) - Palik";
-sim.box_mat = "SiO2 (Glass) - Palik";
-sim.sub_mat = "Si (Silicon) - Palik";
-sim.core_mat = "Si (Silicon) - Palik";
-sim.sim_time = sim.sim_time/(10^sim.CW);
-
-pro = 0;
+sim.movie = 0;
+sim.movie_scale = 1;
+sim.sweep = 1;
 
 
 
-# Sweep
-if (pro){
-    var_list = 100:10:130;
+# Run 
+switchtolayout;
+if (sim.sweep){
+    var_list = 100:10:220;
     temp_map = {
-        "wl_nm"      : zeros(sim.f_pts),
         "rp_list"    : var_list,
         "tp_list"    : var_list,
         "sp_list"    : var_list,
         "sp2_list"   : var_list,
+        #"spida_list": var_list,
         # Scatter power dispersion
+        "wl_nm"      : zeros(sim.f_pts),
         "data_array" : zeros(length(var_list), sim.f_pts)
+        # Scatter power Py x-distribution
+        # This is plotted in a patch
+        # See Sweep Function 
     };
     
     result = sweep(sim,var_list,temp_map);
     mat_var_scalar(var_list,result,14);
-    mat_var_functional(result.wl_nm,result.data_array,14);
+    #mat_var_functional(result.wl_nm,result.data_array,14);
 }
 else{
-    config_2D(sim);    
+    para = config_2D(sim);    
+    print(para);
+    #n_grat = no_ne(sim);
 }
 
 
