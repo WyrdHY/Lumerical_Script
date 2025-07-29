@@ -1,0 +1,308 @@
+# Reset Everything
+if (1){
+#clear;
+#clc;
+clearfunctions;
+deleteall;
+#ct1=now;
+#print((ct1));
+}
+
+# Include Files 
+addpath("C:/Users/EricY/Desktop/Lumerical_Simulation/Library");
+Objects_Lib;
+Utils; 
+Config_2D;
+
+################################
+# Config
+################################
+sim = init();
+
+### Grating Setup ###
+    sim.N = 25;
+    sim.F0 =0.5; #0.48144;#0.467674;
+    sim.R = 0.0/um(1);#0.025/um(1);
+    sim.route_wg_L = um(10);
+
+    sim.G_period = um(0.4); #um(0.881746); #nm(48); 881.746
+    sim.etch = nm(70);
+    
+ ### Optics ###   
+    sim.ida = nm(1550);
+    sim.ida_width = nm(250);
+    sim.f_pts = 100;
+    sim.mode    = 'fundamental TM mode';
+
+    sim.mesh_acc = 4;
+    sim.auto_shutoff = 0.5/100;
+    sim.optimize = 1;
+
+    sim.movie=0;    
+    sim.movie_scale = 0.001;
+    
+### Fiber ###   
+    sim.f_x   = nm(3247); # 1.44427 
+    sim.theta = 10;         # 1.43482
+
+### Silicon(Optional, Will Override) ###
+silicon = 1;
+if (silicon) {
+    #"Si (Silicon) - Palik"
+    #"Si (Silicon) - Dispersive & Lossless"
+    #"Eric-Si"
+    #'SiO2 (Glass) - Palik'
+    #'Eric-SiO2'
+    
+    Si = "Si (Silicon) - Dispersive & Lossless";    
+    SiO2 = "Eric-SiO2";
+    sim.core_mat = Si;
+    sim.tox_mat = SiO2;
+    sim.box_mat = SiO2;
+    sim.sub_mat = Si;
+    
+    #sim.mesh_size = nm(0);
+    sim.wg_height = nm(220);
+    sim.etch     = nm(70);    
+    sim.G_period = nm(634);
+    sim.box_height = um(2);
+    sim.tox_height = nm(720);
+}
+
+
+
+################################
+# Set_Up
+################################
+    mesh_list = [1,2,3,4,5,6,7,8];
+    F_list = [0.4,0.45,0.5,0.55,0.6];
+    fx_list = um(1.8):nm(200):um(5);
+    N_list = [2,4,8,16,32];
+    G_list    = linspace(nm(200),nm(500),10);
+    e_list = [60,65,70,75,80]*1e-9;
+    etch_ymax = um(1):nm(200):um(3.3);
+    outport_y = nm(500):nm(500):um(4.9);
+    
+geo_config(sim);
+sim_FDTD_2D_config(sim);
+
+
+
+
+### DLC Mesh ###
+DLC_mesh = 0; 
+    
+if (DLC_mesh){
+    property_name = "::model::Grating::F0";
+    type = "Number";
+    add_1D_sweep(F_list,property_name,type);
+}
+
+
+
+
+##
+#matlabsave('T_spectrum_.mat',T_spectrum,T_ida,lambda);
+##
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##
+if (0) {
+################################
+# Personal Sweep
+################################
+
+
+N_list = [15,20,25,30];
+num_N  = length(N_list);
+
+# Preallocate array of structs to hold all wavelength responses
+T_data = cell(num_N);
+T_ida_label = zeros(1, num_N);  # for MATLAB legend
+TE_trans_ida = zeros(1, num_N);
+for (i = 1:num_N) {
+    N_val = N_list(i);
+
+    ################################
+    # Configure Simulation
+    ################################
+    sim.N = N_val;
+    switchtolayout;
+    deleteall;
+    geo_config(sim);
+    sim_FDTD_2D_config(sim);
+    
+    ################################
+    # Run Simulation
+    ################################
+    run;
+    
+    ################################
+    # Extract monitor data
+    ################################
+    
+    # Up Coupling
+    freq = getdata("Power_Up", "f");
+    wl   = c / freq;                   # [m]
+    wl_nm = wl * 1e9;                  # Convert to nm for MATLAB plot
+    temp = getresult("Power_Up", "T");
+    T_up    = temp.T;  # Vec
+    
+    # Transmission 
+    temp = getresult("ModeExpand_x2",'expansion for Power_x2');
+    T_tot= temp.T_total;  #Vec
+    T_TE = temp.T_forward; #Vec
+    
+
+    # Vector Plot 
+    T_data{i} = struct;
+    T_data{i}.N     = N_val;
+    T_data{i}.wl_nm = wl_nm;
+    T_data{i}.T     = T_up;  
+
+    # Scalar Plot 
+    T_ida = interp(T_up, wl, sim.ida);
+    T_ida_label(i) = T_ida;
+    
+    te = interp(T_TE, wl, sim.ida);
+    TE_trans_ida(i) = te;
+    print("F = " + num2str(N_val, "%0.2f") + ", T(λ = " + num2str(sim.ida * 1e9,"%0.1f") + " nm) = " + num2str(T_ida, "%0.4f"));
+}
+
+
+
+
+
+
+################################
+# Matlab
+################################
+##
+if (0) {
+matlabput(N_list,TE_trans_ida);
+matlab("
+    fs = 18;
+    ms = 8;
+
+    fig = figure;
+    set(fig, 'Position', [300, 400, 700, 500]);
+ 
+    plot(N_list, TE_trans_ida, '-o', ...
+         'LineWidth', 2, 'MarkerSize', ms, ...
+         'DisplayName', 'Up Scattered Power');hold on;
+    grid on;
+    %ylim([0 1]);
+    xlabel('Wavelength (nm)', 'FontSize', fs);
+    ylabel('TE Transmission', 'FontSize', fs);
+    title('Mode Expansion Transmission vs. Wavelength', 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+");
+}
+
+
+
+if (1){
+try{
+matlabput(T_data, T_ida_label, N_list);
+matlab("
+fs = 18; ms = 6;
+fig = figure;
+set(fig, 'Position', [300, 400, 700, 500]);
+hold on;
+
+nSweep = numel(T_data);
+colors = lines(nSweep);
+
+for i = 1:nSweep
+    entry = T_data{i};
+    plot(entry.wl_nm, entry.T, '-o', ...
+        'Color', colors(i,:), ...
+        'LineWidth', 1.5, ...
+        'MarkerSize', ms, ...
+        'DisplayName', ...
+        sprintf('N = %d', ...
+        entry.N ));
+end
+
+grid on;
+xlabel('Wavelength (nm)', 'FontSize', fs);
+ylabel('Transmission T', 'FontSize', fs);
+title('Transmission Spectrum vs. Wavelength for Different N', 'FontSize', fs + 2);
+legend('Location', 'best', 'FontSize', fs);
+set(gca, 'FontSize', fs);
+");
+}
+}
+
+
+
+
+
+
+################################
+# End of Sweep
+################################
+
+}

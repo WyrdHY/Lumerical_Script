@@ -1,0 +1,145 @@
+if(1){
+clear;
+clc;
+clearfunctions;
+switchtolayout;
+deleteall;
+}
+# Include Files 
+addpath("C:/Users/EricY/Desktop/Lumerical_Simulation/Library");
+Objects_Lib;
+Utils; 
+Configure_Setup;
+
+################################
+# Basic Configure Once
+################################
+sim = init();
+   
+### Optical Setup ###
+    sim.ida = nm(633);
+    sim.ida_width = nm(20);
+    sim.f_pts    = 20;
+    sim.mode     = 'Fundamental TE mode';
+    
+### Geo Setup ###
+    sim.L = um(1);
+    sim.route_wg_L = um(5);
+    sim.wg_height = um(2);
+    w = um(8);
+    sim.w1 = w;
+    sim.w2 = w;
+    
+### Diode Setup ###   
+    sim.d_width = um(5);
+    sim.d_height= um(2.2);
+    sim.d_space = um(10);
+    
+### FDTD Setup ###   
+    sim.y_span   = um(12);
+    sim.z_span   = um(6);
+    sim.mesh_acc = 2;
+    
+### Movie Setup ###      
+    sim.movie = 0;
+    sim.movie_scale = 0.01;
+    sim.pix   = 500;
+    mesh_list  = [1,2,3,4,5];
+    width_list = um(1):um(0.5):um(8);
+    
+### Mat Setup ###   
+    sim.core_mat = '2% Long Anneal';
+
+
+
+
+geo_config(sim);
+sim_Diode_FDTD_config(sim);
+
+
+
+
+##
+#select("FDTD::ports::input TE mode");
+#set('mode selection', sim.mode);
+
+
+##
+#matlabsave('convergence_test.mat',T,T2);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##
+if (0) {
+################################
+# Loop
+################################
+width_list = um(2):um(1):um(10);  
+N          = length(width_list);
+s21_list   = zeros(N);    
+s21_avg_list = zeros(N);
+
+for(i = 1:N) {
+    switchtolayout;
+    deleteall;
+    w = width_list(i);
+    sim.w1 = w;
+    sim.w2 = w;
+    geo_config(sim);        
+    sim_FDTD_config(sim); 
+    run;
+    
+    
+    temp = getresult("ModeExpand_x2", "expansion for Power_x2");
+    T2 = temp.T_forward;                          # transmission vs freq (vector)
+    freq = getdata("Power_x2", "f");              # frequency vector (Hz)
+    wl = c / freq * 1e9;                         # convert to wavelength in nm
+    T_ida = interp(T2, wl, sim.ida * 1e9);        # sim.ida is in meters → *1e9 = nm
+    
+    s21_list(i)     = T_ida;                      # single-wavelength value
+    s21_avg_list(i) = mean(T2);                   # average over spectrum
+    
+    print("Width = " + num2str(w / um(1)) + " µm, T(ida) = " + num2str(T_ida) + ", Avg = " + num2str(s21_avg_list(i)));
+    
+}
+##
+## Single Shot
+try{
+matlabput(width_list, s21_list);
+matlab("
+    fs = 18;
+    ms = 8;
+    fig = figure;
+    set(fig, 'Position', [300, 400, 700, 500]);
+    plot(width_list * 1e6, s21_list, '-o', ...
+        'LineWidth', 2, 'MarkerSize', ms, ...
+        'DisplayName', '|S_{21}|^2', 'Color', 'b');
+    grid on;
+    xlabel('Waveguide Width (\\mum)', 'FontSize', fs);
+    ylabel('Coupling Efficiency |S_{21}|^2', 'FontSize',fs);
+    title('Width Sweep Result', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+");
+}
+################################
+# End of Loop
+################################
+}

@@ -1,0 +1,90 @@
+function um(x) { return x*1e-6; }
+
+function nm(x) { return x*1e-9; }
+function init(){ # This is for silica platform
+    temp = {
+    'F0'          : 0.9,        # Initial Duty Cycle
+    'R'           : 0.025/um(1),# um-1, Apodized Rate
+    'G_period'    : nm(600),
+    "wg_height"   : um(2),   # Height of wg
+    "wg_width"    : um(3),    
+    "etch"        : nm(150),
+    "N"           : 25,
+    "route_wg_L"  : um(5),
+    "ida"         : nm(1550),
+    "ida_width"   : nm(100),
+    "f_pts"       : 500,
+    "auto_shutoff": .1/100,
+    "mesh_acc"    : 4,
+    "movie"       : 0,
+    "movie_scale" : 0.75,
+    "y_pixcel"    : 1500,
+    "sample_rate" : 30,
+    "CW"          : 1,
+    "sim_time"    : 1000,
+    "core_mat"    : "2% Long Anneal",
+    "sub_mat"     : "THOX",
+    "clad_mat"    : "Air",
+    "box_mat"     : "THOX",
+    "FDTD_2D"     : 1,
+    "sweep"       : 0,
+    "mode"        : "fundamental TM mode"
+    };
+    return temp;
+}
+# Create a structure group for a uniform grating coupler
+function create_grating_group(sim) {
+addstructuregroup;
+# Define user properties (name, type, value)
+adduserprop("F0",        0, sim.F0);
+adduserprop("R",         0, sim.R);
+adduserprop("G_period",  2, sim.G_period);
+adduserprop("wg_height", 2, sim.wg_height);
+adduserprop("wg_width",  2, sim.wg_width);
+adduserprop("etch",      2, sim.etch);
+adduserprop("N",         0, sim.N);
+adduserprop("core_mat",  5, sim.core_mat);
+
+# Build the group’s script step-by-step
+myscript = "Le = %G_period%*(1-%F0%); \n";
+myscript = myscript + "Lo = %G_period%*%F0%; \n";
+myscript = myscript + "dz = 0; \n";
+myscript = myscript + "for (i = 1:%N%) { \n";
+myscript = myscript + "  # etched tooth\n";
+myscript = myscript + "  addrect; \n";
+myscript = myscript + "  set(\"name\",\"tooth_E\"+num2str(i)); \n";
+myscript = myscript + "  set(\"x min\", dz); \n";
+myscript = myscript + "  set(\"x max\", dz+Le); \n";
+myscript = myscript + "  set(\"y min\", 0); \n";
+myscript = myscript + "  set(\"y max\", %wg_height% - %etch%); \n";
+myscript = myscript + "  set(\"material\", core_mat); \n";
+myscript = myscript + "  addtogroup(\"Grating\"); \n";
+myscript = myscript + "  dz = dz + Le; \n";
+myscript = myscript + "  # unetched tooth\n";
+myscript = myscript + "  addrect; \n";
+myscript = myscript + "  set(\"name\",\"tooth_O\"+num2str(i)); \n";
+myscript = myscript + "  set(\"x min\", dz); \n";
+myscript = myscript + "  set(\"x max\", dz+Lo); \n";
+myscript = myscript + "  set(\"y min\", 0); \n";
+myscript = myscript + "  set(\"y max\", %wg_height%); \n";
+myscript = myscript + "  set(\"material\", core_mat); \n";
+myscript = myscript + "  addtogroup(\"Grating\"); \n";
+myscript = myscript + "  dz = dz + Lo; \n";
+myscript = myscript + "  # apodization update\n";
+myscript = myscript + "  F = %F0% - %R%*dz; \n";
+myscript = myscript + "  period = Le + Lo; \n";
+myscript = myscript + "  Le = period*(1-F); \n";
+myscript = myscript + "  Lo = Le*F/(1-F); \n";
+myscript = myscript + "} \n";
+myscript = myscript + "selectall; \n";
+myscript = myscript + "set(\"z\",0); \n";
+myscript = myscript + "set(\"z span\",50e-6);";
+
+# Name the group and attach the script
+set("name",   "Grating");
+set("script", myscript);
+}
+
+deleteall;
+a =init();
+create_grating_group(a);

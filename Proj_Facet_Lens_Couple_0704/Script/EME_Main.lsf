@@ -1,0 +1,128 @@
+if(1){
+clear;
+clc;
+clearfunctions;
+switchtolayout;
+deleteall;
+}
+Configure_Setup;
+
+################################
+# Basic Configure Once
+################################
+sim = init();
+sim.L = um(15);
+sim.route_wg_L = um(5);
+sim.mesh_size = nm(50);
+sim.core_mat  ="4%_FHD";
+sim.wg_height = um(2);
+################################
+# Double Loop 
+################################
+ida_list   = [1550,980];
+width_list = um(2):um(0.5):um(10);  
+N          = length(width_list);
+N2         = length(ida_list);
+d_set      = {
+                "w980" : zeros(1, N),
+                "w1550" : zeros(1, N)
+            };
+
+for (j=1:N2){
+    ida = ida_list(j);
+    ida_string = num2str(ida);
+    s21_list   = zeros(N);    
+    print('Running '+ida_string); 
+    sim.ida=nm(ida);
+    for(i = 1:N) {
+    ######################
+    # Configure Change
+    ######################
+    switchtolayout;
+    deleteall;
+    w = width_list(i);
+    sim.w1 = w;
+    sim.w2 = w;
+    geo_config(sim);        
+    sim_eme_config(sim); 
+    
+    ######################
+    # Run
+    ######################         
+    run;
+    emepropagate;
+    
+    ######################
+    # Read Result
+    ###################### 
+    Sdata = getresult("EME", "user s matrix");   
+    c_e   = abs(Sdata(2,1))^2;                 
+    s21_list(i) = c_e;
+    print("Width = " + num2str(w / um(1)) + " µm, Coupling Efficiency = " + num2str(c_e));
+    }
+    if (ida == 980) { d_set.w980 = s21_list; }
+    if (ida == 1550) { d_set.w1550 = s21_list; }
+    if (ida == 633) { d_set.w633 = s21_list; }
+    if (ida == 785) { d_set.w785 = s21_list; }
+
+}    
+
+
+
+
+
+################################
+# Plot in Matlab
+################################
+##
+## Single Shot
+try{
+matlabput(width_list, s21_list);
+matlab("
+    fs = 18;
+    ms = 8;
+    fig = figure;
+    set(fig, 'Position', [300, 400, 700, 500]);
+    plot(width_list * 1e6, s21_list, '-o', ...
+        'LineWidth', 2, 'MarkerSize', ms, ...
+        'DisplayName', '|S_{21}|^2', 'Color', 'b');
+    grid on;
+    xlabel('Waveguide Width (\\mum)', 'FontSize', fs);
+    ylabel('Coupling Efficiency |S_{21}|^2', 'FontSize',fs);
+    title('Width Sweep Result', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+");
+}
+try{
+matlabput(width_list, d_set);
+matlab("
+    fs = 18;
+    ms = 8;
+
+    fig = figure;
+    set(fig, 'Position', [300, 400, 800, 500]);
+    hold on; grid on;
+
+    keys_ = fieldnames(d_set);
+    colors = lines(length(keys_));
+
+    for idx = 1:length(keys_)
+        key = keys_{idx};
+        data = d_set.(key);
+        % remove 'w' from key to get wavelength (e.g., 'w450' → '450')
+        wl_str = key(2:end);
+        plot(width_list * 1e6, data, '-o', ...
+            'LineWidth', 2, ...
+            'MarkerSize', ms, ...
+            'Color', colors(idx,:), ...
+            'DisplayName', [wl_str ' nm']);
+    end
+    %ylim([0.4 1])
+    xlabel('Waveguide Width (\\mum)', 'FontSize', fs);
+    ylabel('Coupling Efficiency |S_{21}|^2', 'FontSize', fs);
+    title('Coupling Efficiency vs Width at Multiple Wavelengths', 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+");
+}

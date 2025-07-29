@@ -1,0 +1,78 @@
+Fundamental_Elements;
+Config_2D;
+
+
+temp = getresult('Power_Up','T');
+T2 = temp.T;
+
+freq = getdata('Power_Up','f');
+matlabput(T2,freq);
+
+py = getresult('Power_Up','Py_avg');
+x  = getresult('Power_Up','x');
+
+matlabput(x,py);
+matlab("
+    fs = 18;
+    ms = 4;
+
+    fig = figure;
+    set(fig, 'Position', [300, 400, 700, 500]);
+ 
+    plot(x, py, '-o', ...
+         'LineWidth', 2, 'MarkerSize', ms, ...
+         'DisplayName', 'Up Scattered Power');hold on;
+    grid on;
+    %ylim([0 1]);
+    xlabel('x', 'FontSize', fs);
+    ylabel('Py', 'FontSize', fs);
+    title('Mode Expansion Transmission vs. Wavelength', 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+");
+if (0){
+matlab("
+    fs = 18;
+    ms = 8;
+    c = 3e8;                             % speed of light [m/s]
+    lambda = c ./ freq * 1e9;           % convert freq (Hz) to wavelength (nm)
+
+    fig = figure;
+    set(fig, 'Position', [300, 400, 700, 500]);
+ 
+    plot(lambda, T2, '-o', ...
+         'LineWidth', 2, 'MarkerSize', ms, ...
+         'DisplayName', 'Up Scattered Power');hold on;
+    grid on;
+    %ylim([0 1]);
+    xlabel('Wavelength (nm)', 'FontSize', fs);
+    ylabel('Forward Transmission', 'FontSize', fs);
+    title('Mode Expansion Transmission vs. Wavelength', 'FontSize', fs);
+    legend('Location', 'best', 'FontSize', fs);
+    set(gca, 'FontSize', fs);
+");
+}
+
+
+
+
+
+##
+freq = getdata("Power_Up", "f");
+wl   = c / freq;             # m
+temp = getresult("Power_Up", "T");
+T    = temp.T;
+
+T_ida = interp(T,wl , sim.ida);    
+T_at_ida(i) = T_ida;
+N_saved(i)  = N_val;
+print("N = " + num2str(sim.N) + ", T(λ = " + num2str(sim.ida * 1e9,"%d") + " nm) = " + num2str(T_ida, "%0.4f"));
+
+
+
+## 
+temp = getresult("ModeExpand_x2",'expansion for Power_x2');
+T_tot= temp.T_total; 
+T_TE = temp.T_forward;
+##
+matlab("a=2");

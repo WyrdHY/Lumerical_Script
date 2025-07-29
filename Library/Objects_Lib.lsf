@@ -1,0 +1,250 @@
+function Taper_Wg(sim) {
+    ################################
+    # Taper Waveguide Construction Group
+    ################################
+    addstructuregroup;
+    set("name", "TaperWg");
+
+    # Define user properties (name, type, value)
+    adduserprop("w1",         2, sim.w1);
+    adduserprop("w2",         2, sim.w2);
+    adduserprop("L",          2, sim.L);
+    adduserprop("wg_height",  2, sim.wg_height);
+    adduserprop("core_mat",   5, sim.core_mat);
+    adduserprop("route_wg_L", 2, sim.route_wg_L);
+
+    # Build the group’s script step-by-step
+    myscript = "V = matrix(4,2); \n";
+    myscript = myscript + "V(1,1:2)=[-L/2, -w1/2]; \n";
+    myscript = myscript + "V(2,1:2)=[ L/2, -w2/2]; \n";
+    myscript = myscript + "V(3,1:2)=[ L/2,  w2/2]; \n";
+    myscript = myscript + "V(4,1:2)=[-L/2,  w1/2]; \n";
+    myscript = myscript + "addpoly; \n";
+    myscript = myscript + "  set(\"name\", \"taper\"); \n";
+    myscript = myscript + "  set(\"x\", 0); set(\"y\", 0); set(\"z\", 0); \n";
+    myscript = myscript + "  set(\"z span\", wg_height); \n";
+    myscript = myscript + "  set(\"vertices\", V); \n";
+    myscript = myscript + "  set(\"material\", core_mat); \n";
+
+    # Input waveguide rectangle
+    myscript = myscript + "addrect; \n";
+    myscript = myscript + "  set(\"name\", \"in_wg\"); \n";
+    myscript = myscript + "  set(\"x min\", -L/2 - route_wg_L); \n";
+    myscript = myscript + "  set(\"x max\", -L/2); \n";
+    myscript = myscript + "  set(\"y min\", -w1/2); \n";
+    myscript = myscript + "  set(\"y max\",  w1/2); \n";
+    myscript = myscript + "  set(\"z\", 0); set(\"z span\", wg_height); \n";
+    myscript = myscript + "  set(\"material\", core_mat); \n";
+
+    # Output waveguide rectangle
+    myscript = myscript + "addrect; \n";
+    myscript = myscript + "  set(\"name\", \"out_wg\"); \n";
+    myscript = myscript + "  set(\"x min\", L/2 ); \n";
+    myscript = myscript + "  set(\"x max\", L/2 + route_wg_L); \n";
+    myscript = myscript + "  set(\"y min\", -w2/2); \n";
+    myscript = myscript + "  set(\"y max\",  w2/2); \n";
+    myscript = myscript + "  set(\"z\", 0); set(\"z span\", wg_height); \n";
+    myscript = myscript + "  set(\"material\", core_mat); \n";
+
+    # Finalize group
+    myscript = myscript + "selectall; \n";
+
+    set("script", myscript);
+    set("construction group", 1);
+}
+function Diode_Laser(sim) {
+    ################################
+    # Diode Laser (Mimic by Waveguide) Construction Group
+    ################################
+    addstructuregroup;
+    set("name", "DiodeLaser");
+
+    # Define user properties (name, type, value)
+    adduserprop("diode_space", 2, sim.d_space);
+    adduserprop("d_width",     2, sim.d_width);
+    adduserprop("d_height",    2, sim.d_height);
+    adduserprop("d_length",    2, sim.d_length);
+    adduserprop("core_mat",    5, sim.d_core_mat);
+    adduserprop("clad_mat",    5, sim.d_clad_mat);
+    adduserprop("route_wg_L",  2, sim.route_wg_L);
+    adduserprop("L",           2, sim.L);
+
+    # Build the group’s script step-by-step
+    myscript = "";
+    # compute diode start/end
+    myscript = myscript + "xf = -L/2 - route_wg_L - diode_space; \n";
+    myscript = myscript + "xi = xf - d_length; \n";
+
+    # Core region
+    myscript = myscript + "addrect; \n";
+    myscript = myscript + "  set(\"name\",\"diode_core\"); \n";
+    myscript = myscript + "  set(\"x min\", xi); \n";
+    myscript = myscript + "  set(\"x max\", xf); \n";
+    myscript = myscript + "  set(\"y\", 0); \n";
+    myscript = myscript + "  set(\"y span\", d_width); \n";
+    myscript = myscript + "  set(\"z\", 0); \n";
+    myscript = myscript + "  set(\"z span\", d_height); \n";
+    myscript = myscript + "  set(\"material\", core_mat); \n";
+
+    # Cladding region
+    myscript = myscript + "addrect; \n";
+    myscript = myscript + "  set(\"name\",\"diode_clad\"); \n";
+    myscript = myscript + "  set(\"x min\", xi); \n";
+    myscript = myscript + "  set(\"x max\", xf); \n";
+    myscript = myscript + "  set(\"y\", 0); \n";
+    myscript = myscript + "  set(\"y span\", 2*max([d_width,d_height])); \n";
+    myscript = myscript + "  set(\"z\", 0); \n";
+    myscript = myscript + "  set(\"z span\",2*max([d_width,d_height])); \n";
+    myscript = myscript + "  set(\"material\", clad_mat); \n";
+
+    # finalize group
+    myscript = myscript + "selectall; \n";
+
+    set("script", myscript);
+    set("construction group", 1);
+}
+function apodize(sim) {
+    addstructuregroup;
+    set("name",   "Grating");
+    
+    # Define user properties (name, type, value)
+    adduserprop("F0",        0, sim.F0);
+    adduserprop("R",         0, sim.R);
+    adduserprop("G_period",  2, sim.G_period);
+    adduserprop("wg_height", 2, sim.wg_height);
+    adduserprop("wg_width",  2, sim.wg_width);
+    adduserprop("etch",      2, sim.etch);
+    adduserprop("N",         0, sim.N);
+    adduserprop("core_mat",  5, sim.core_mat);
+    adduserprop("route_wg_L",  2, sim.route_wg_L);
+    
+    # Build the group’s script step-by-step
+    myscript = "Le = %G_period%*(1-%F0%); \n";
+    myscript = myscript + "Lo = %G_period%*%F0%; \n";
+    myscript = myscript + "dz = 0; \n";
+    myscript = myscript + "for (i = 1:%N%) { \n";
+    myscript = myscript + "  # etched tooth\n";
+    myscript = myscript + "  addrect; \n";
+    myscript = myscript + "  set(\"name\",\"tooth_E\"+num2str(i)); \n";
+    myscript = myscript + "  set(\"x min\", dz); \n";
+    myscript = myscript + "  set(\"x max\", dz+Le); \n";
+    myscript = myscript + "  set(\"y min\", 0); \n";
+    myscript = myscript + "  set(\"y max\", %wg_height% - %etch%); \n";
+    myscript = myscript + "  set(\"z\", 0); \n";
+    myscript = myscript + "  set(\"z span\", %wg_width%); \n";
+    myscript = myscript + "  set(\"material\", core_mat); \n";
+    myscript = myscript + "  dz = dz + Le; \n";
+    myscript = myscript + "  # unetched tooth\n";
+    myscript = myscript + "  addrect; \n";
+    myscript = myscript + "  set(\"name\",\"tooth_O\"+num2str(i)); \n";
+    myscript = myscript + "  set(\"x min\", dz); \n";
+    myscript = myscript + "  set(\"x max\", dz+Lo); \n";
+    myscript = myscript + "  set(\"z\", 0); \n";
+    myscript = myscript + "  set(\"z span\", %wg_width%); \n";
+    myscript = myscript + "  set(\"y min\", 0); \n";
+    myscript = myscript + "  set(\"y max\", %wg_height%); \n";
+    myscript = myscript + "  set(\"material\", core_mat); \n";
+    myscript = myscript + "  dz = dz + Lo; \n";
+    myscript = myscript + "  # apodization update\n";
+    myscript = myscript + "  F = %F0% - %R%*dz; \n";
+    myscript = myscript + "  period = Le + Lo; \n";
+    myscript = myscript + "  Le = period*(1-F); \n";
+    myscript = myscript + "  Lo = Le*F/(1-F); \n";
+    myscript = myscript + "} \n";
+    
+    myscript = myscript + "addrect;\n";
+    myscript = myscript + "set(\"name\", \"in_wg\");\n";
+    myscript = myscript + "set(\"x min\", -%route_wg_L%);\n";
+    myscript = myscript + "set(\"x max\", 0);\n";
+    myscript = myscript + "set(\"y min\", 0); \n";
+    myscript = myscript + "set(\"y max\", %wg_height%); \n";
+    myscript = myscript + "set(\"z\", 0);\n";
+    myscript = myscript + "set(\"z span\", %wg_width%);\n";
+    myscript = myscript + "set(\"material\", core_mat);\n";
+    
+    myscript = myscript + "addrect;\n";
+    myscript = myscript + "set(\"name\",\"out_wg\");\n";
+    myscript = myscript + "set(\"x min\", dz);\n";
+    myscript = myscript + "set(\"x max\", 50*1e-6);\n";
+    myscript = myscript + "set(\"y min\", 0); \n";
+    myscript = myscript + "set(\"y max\", %wg_height%); \n";
+    myscript = myscript + "set(\"z\", 0);\n";
+    myscript = myscript + "set(\"z span\", %wg_width%);\n";
+    myscript = myscript + "set(\"material\", core_mat);\n";
+    myscript = myscript + "selectall; \n";
+    
+    # Name the group and attach the script
+    set("script", myscript);
+    set("construction group",1);
+}
+function fiber(sim) {
+  addstructuregroup;
+  set("name", "Fiber");
+  # --- user properties ---------------------------------------------------
+  adduserprop("core_index",        5, sim.f_core_mat);        # -
+  adduserprop("cladding_index",    5, sim.f_clad_mat);    # -
+  adduserprop("core_diameter",     2, sim.core_diameter);     # length (µm)
+  adduserprop("cladding_diameter", 2, sim.cladding_diameter); # length (µm)
+  adduserprop("theta",             0, sim.theta);             # tilt angle (deg)
+  adduserprop("y span",            2, sim.fiber_length);            # span in Y (µm)
+
+  # --- construction script ----------------------------------------------
+  myscript = "";
+  myscript = myscript + "core_index     = %core_index%;\n";
+  myscript = myscript + "cladding_index = %cladding_index%;\n\n";
+
+  myscript = myscript + "core_radius     = %core_diameter%/2.0;\n";
+  myscript = myscript + "cladding_radius = %cladding_diameter%/2.0;\n";
+  myscript = myscript + "theta           = %theta%;\n";
+  myscript = myscript + "theta_rad       = theta*(pi/180);\n";
+  myscript = myscript + "L               = %y span%/cos(theta_rad);\n\n";
+
+  # --- build cladding ----------------------------------------------------
+  myscript = myscript + "addcircle;\n";
+  myscript = myscript + "set(\"name\", \"cladding\");\n";
+  myscript = myscript + "set(\"radius\",      cladding_radius);\n";
+  myscript = myscript + "set(\"x\",           0);\n";
+  myscript = myscript + "set(\"y\",           0);\n";
+  myscript = myscript + "set(\"z\",           0);\n";
+  myscript = myscript + "set(\"z span\",      L);\n";
+  myscript = myscript + "set(\"first axis\", \"x\");\n";
+  myscript = myscript + "set(\"rotation 1\", 90);\n";
+  myscript = myscript + "set(\"second axis\", \"z\");\n";
+  myscript = myscript + "set(\"rotation 2\", -theta);\n";
+  myscript = myscript + "set(\"material\", cladding_index); \n";
+  myscript = myscript + "set(\"override mesh order from material database\", 1); \n";
+  myscript = myscript + "set(\"override color opacity from material database\", 1); \n";
+  myscript = myscript + "set(\"mesh order\", 8); \n";
+  myscript = myscript + "set(\"alpha\", 0.2); \n";
+  
+  myscript = myscript + "set(\"material\", \"<Object defined dielectric>\"); \n";  
+  myscript = myscript + "set(\"index\", 1.43482); \n";  
+
+
+  # --- build core --------------------------------------------------------
+  myscript = myscript + "addcircle;\n";
+  myscript = myscript + "set(\"name\", \"core\");\n";
+  myscript = myscript + "set(\"radius\",      core_radius);\n";
+  myscript = myscript + "set(\"x\",           0);\n";
+  myscript = myscript + "set(\"y\",           0);\n";
+  myscript = myscript + "set(\"z\",           0);\n";
+  myscript = myscript + "set(\"z span\",      L);\n";
+  myscript = myscript + "set(\"first axis\", \"x\");\n";
+  myscript = myscript + "set(\"rotation 1\", 90);\n";
+  myscript = myscript + "set(\"second axis\", \"z\");\n";
+  myscript = myscript + "set(\"rotation 2\", -theta);\n";
+  myscript = myscript + "set(\"material\", core_index); \n";
+  myscript = myscript + "set(\"override mesh order from material database\", 1); \n";
+  myscript = myscript + "set(\"override color opacity from material database\", 1); \n";
+  myscript = myscript + "set(\"mesh order\", 7); \n";
+  myscript = myscript + "set(\"alpha\", 0.6); \n";
+  
+  myscript = myscript + "set(\"material\", \"<Object defined dielectric>\"); \n";  
+  myscript = myscript + "set(\"index\", 1.44427 ); \n";  
+  
+  myscript = myscript + "selectall;\n";
+
+  # attach and finalise
+  set("script", myscript);
+  set("construction group", 1);
+}

@@ -1,0 +1,290 @@
+# Include Files 
+addpath("C:/Users/EricY/Desktop/Lumerical_Simulation/Library");
+Objects_Lib;
+Utils; 
+
+
+function grating_length(sim) {
+    F0       = sim.F0;
+    G_period = sim.G_period;
+    N        = sim.N;
+    R        = sim.R;
+    Le = G_period * (1 - F0);
+    Lo = G_period * F0;
+    dz = 0;  
+    for (i = 1:1:N) {
+        dz = dz + Le + Lo;
+        F = F0 - R * dz;
+        period = Le + Lo;
+        Le = period * (1 - F);
+        Lo = Le * F / (1 - F);
+    }
+    return dz;
+}
+function geo_config(sim) {
+    Lg         = grating_length(sim);
+    route_wg_L = sim.route_wg_L;
+    wg_width   = sim.wg_width;
+    wg_height  = sim.wg_height;
+    core_mat   = sim.core_mat;
+    clad_mat   = sim.clad_mat;
+    sub_mat    = sim.sub_mat;
+    box_mat    = sim.box_mat;
+    box_height = sim.box_height;
+    sub_height = um(15);
+
+    ################################
+    # Apodized Grating
+    ################################
+    apodize(sim);
+    select('Grating');
+    set('x',0);
+    set('y',-wg_height/2);
+    set('z',0);
+    print("Grating specs: Period = " + num2str(sim.G_period/um(1))    + " µm, " +
+      "F0 = "         + num2str(sim.F0)             + ", " +
+      "R = "         + num2str(sim.R*um(1))              + "um-1, " +
+      "Total length = "          + num2str(Lg/um(1))           + " µm, " +
+      "Cycles N = "              + num2str(sim.N));
+    ################################
+    # Fiber
+    ################################
+    fiber(sim);
+    select('Fiber');
+    set('x',sim.f_x);
+    set('y',0);
+    set('z',0);
+    ################################
+    # Substrate
+    ################################
+    addrect;
+        set('use relative coordinates',0);
+        set('x min',-route_wg_L);
+        set('x max',um(50));
+        set('y max',-0.5*wg_height);
+        set('y min',-um(20));
+        set('z'    ,0);
+        set('z span', um(20));
+        set('material',sub_mat);
+        set('name',"Substrate");
+        set('override mesh order from material database',1);
+        set('mesh order',5);
+    ################################
+    # Box
+    ################################
+    addrect;
+        set('use relative coordinates',0);
+        set('x min',-route_wg_L);
+        set('x max',um(50));
+        set('y max',-0.5*wg_height);
+        set('y min',-box_height-0.5*wg_height);
+        set('z'    ,0);
+        set('z span', um(20));
+        set('material',box_mat);
+        set('name',"Box");
+        set('override mesh order from material database',1);
+        set('mesh order',3);
+    ################################
+    # Tox 
+    ################################
+    addrect;
+        set('use relative coordinates',0);
+        set('x min',-route_wg_L);
+        set('x max',um(50));
+        set('y max',0.5*wg_height+sim.tox_height);
+        set('y min',-0.5*wg_height);
+        set('z'    ,0);
+        set('z span', um(20));
+        set('material',sim.tox_mat);
+        set('name',"Tox");
+        set('override mesh order from material database',1);
+        set('mesh order',3);    
+        set('override color opacity from material database',1);
+        set('alpha',1);
+    ################################
+    # Etched Air  
+    ################################
+    addrect;
+        set('use relative coordinates',0);
+        set('x min',-route_wg_L);
+        set('x max',um(50));
+        set('y max',0.5*wg_height+sim.tox_height+um(3));
+        set('y min',0.5*wg_height+sim.tox_height);
+        set('z'    ,0);
+        set('z span', um(20));
+        set('material',"Air");
+        set('name',"Etch Air");
+        set('override mesh order from material database',1);
+        set('mesh order',1);    
+        set('override color opacity from material database',1);
+        set('alpha',1);
+        #delete;
+}
+
+function sim_FDTD_2D_config(sim){
+    ################################
+    # Load
+    ################################   
+    ida       = sim.ida;
+    ida_width = sim.ida_width;
+    sim_time  = sim.sim_time*1e-15;
+    auto_shutoff = sim.auto_shutoff;
+    movie     = sim.movie;
+    mesh_acc  = sim.mesh_acc;
+    movie_scale = sim.movie_scale;
+    y_pix     = sim.y_pixcel;
+    sample_rate = sim.sample_rate;
+    f_pts     = sim.f_pts;
+    Lg        = grating_length(sim);
+    route_wg_L= sim.route_wg_L;
+    mode      = sim.mode;
+    ################################
+    # FDTD 2D
+    ################################   
+    addfdtd;
+        set("dimension",1);  
+        set("x min",-route_wg_L*0.98);
+        set("x max",um(20)); #20
+        set('y min',um(-3));
+        set('y max',um(5)); 
+        set("Z",0);
+        set('simulation time', sim_time);
+        set('auto shutoff min',auto_shutoff);
+        set('mesh accuracy',mesh_acc);
+        setglobalmonitor('frequency points',f_pts);
+    
+    ################################
+    # Input Source
+    ################################ 
+    ### input ###    
+    addport; 
+        set("x",-0.7*route_wg_L);
+        
+        S_span = um(1);
+        set("y max", um(3));
+        set("y min", um(-2));
+        set("name","input"); 
+        set('mode selection',mode);
+        
+        setglobalsource('set wavelength',1);
+        setglobalsource("center wavelength", ida);
+        setglobalsource("wavelength span",  ida_width);
+        setglobalsource("eliminate discontinuities",1);
+        setglobalsource("optimize for short pulse",0);
+    
+    ### output ###
+    addport; 
+        set('injection axis', 'y');
+        set('direction','backward');
+        set("x",                sim.f_x);
+        set("y",                um(4.5)); #2.5
+        set("x span",           um(24));
+        set("z span",           sim.wg_width);
+        set('theta',            -sim.theta);
+        set('rotation offset',  um(5));
+        set("name","output"); 
+        set('mode selection',mode);
+        
+        
+        
+        
+        setglobalsource('set wavelength',1);
+        setglobalsource("center wavelength", ida);
+        setglobalsource("wavelength span",  ida_width);
+        setglobalsource("eliminate discontinuities",1);
+        setglobalsource("optimize for short pulse",0);    
+        
+    ################################
+    # Mesh
+    ################################  
+    mesh_size = sim.mesh_size;
+    if (0) { 
+    addmesh;
+        set('name' , 'Box');
+        set('based on a structure', 1);
+        set('structure', 'Box');
+        set('buffer', nm(0));
+        set('dx', mesh_size);
+        set('dy', mesh_size);
+        set('dz', mesh_size);
+        
+
+    }
+    ################################
+    # Index Monitor
+    ################################ 
+    if (0){
+    addindex;
+    set('name','neff');
+    set('use source limits',0);
+    set('wavelength center',ida);
+    set('monitor type','2D z-normal');
+    set('x min',-route_wg_L);
+    set('x max',Lg+route_wg_L);
+    set("y", 0);
+    set("z", 0);
+    set("y span", um(10));                      
+    }
+    
+    ################################
+    # Power Monitor
+    ################################ 
+    if (!sim.optimize){
+    x1 = -route_wg_L*0.25;
+    x2 = Lg + route_wg_L/4;
+    add_monitor_pair(x2,'x2',um(8),um(2),sim);
+    }
+    
+    ################################
+    # Model Analysis 
+    ################################ 
+    select('::model');
+    flag = 1; 
+    try{get('ida');
+        flag = 0;}
+    if (flag) {addanalysisprop("ida", 2, ida);
+                addanalysisresult("T_ida");
+                addanalysisresult("T_spectrum");
+                addanalysisresult("lambda");} 
+    else {set('ida',sim.ida);}
+
+        myscript = myscript + "T_data     = getresult('FDTD::ports::output','expansion for port monitor');\n";
+        myscript = myscript + "T_spectrum = abs(T_data.T_out);\n";
+        myscript = myscript + "lambda     = T_data.lambda;\n";
+        myscript = myscript + "T_ida      = spline(T_spectrum, lambda, ida);\n";
+        myscript = myscript + "try {\n";
+        myscript = myscript + "    plot(lambda*1e9, T_spectrum);\n";
+        myscript = myscript + "    print('T_' + num2str(ida*1e9, '%.1f') + ' = ' + num2str(T_ida, '%.5f'));\n";
+        myscript = myscript + "}\n";
+
+    set("analysis script", myscript);
+        
+        
+    ################################
+    # Movie Monitor
+    ################################ 
+    
+    if (sim.movie){
+    addmovie;
+        set('monitor type','2D Z-normal');
+        set('name','movie');
+        set("x min",-route_wg_L*0.98);
+        set("x max",um(20));
+        set('y min',um(-3));
+        set('y max',um(5)); 
+        set('scale',movie_scale);
+        set("horizontal resolution", y_pix); 
+        set('lock aspect ratio',1);       
+        set('min sampling per cycle',sample_rate);   
+        #set("vertical resolution", 400);              
+    }
+}
+    
+
+    
+    
+    
+    
+    
+    
+    

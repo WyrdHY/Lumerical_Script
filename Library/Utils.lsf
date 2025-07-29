@@ -1,0 +1,215 @@
+function um(x) { return x * 1e-6; }
+function nm(x) { return x * 1e-9; }
+function init() {
+    temp = {
+        ### Common
+        "wg_height"    : um(2),           
+        "sub_width"    : um(50),
+        "sub_height"   : um(15),
+        "clad_height"  : um(0),
+        "route_wg_L"   : um(5),
+        
+        ### Tapering Wg
+        "w1"           : um(12),
+        "w2"           : um(4),
+        "L"            : um(50),
+
+        ### Grating
+        "etch"         : nm(150),
+        "F0"           : 0.9,
+        "R"            : 0.025/um(1),
+        "G_period"     : nm(600),
+        "wg_width"     : um(3),
+        "N"            : 25,
+
+        ### Material
+        "core_mat"     : "2% Long Anneal",
+        "sub_mat"      : "THOX",
+        "clad_mat"     : "Air",
+        "box_mat"      : "THOX",
+        "box_height"   : um(5),
+        "tox_mat"      : "Air",
+        "tox_height"   : um(2),
+                        
+        ### Simulation Controls
+        "ida"          : nm(1550),
+        "ida_width"    : nm(50),
+        "mesh_size"    : 0,
+        "mesh_acc"     : 4,
+        "movie"        : 0,
+        "movie_scale"  : 0.75,
+        "y_pixcel"     : 1500,           
+        "sample_rate"  : 30,
+        "auto_shutoff" : .1/100,
+        "sim_time"     : 1000,
+        "f_pts"        : 100,
+        "sweep"        : 0,
+        "mode"         : "fundamental TM mode",
+        "optimize"     : 0,
+        "FDTD_2D"      : 1,
+
+        ### Simulation Range
+        "x_span"       : um(7),
+        "y_span"       : um(10),
+        "z_span"       : um(8),
+
+        ### Diode Laser
+        "d_space"      : um(10),
+        "d_width"      : um(2.64),
+        "d_height"     : um(1.3),
+        "d_length"     : um(6),
+        "d_core_mat"   : "2% Long Anneal",
+        "d_clad_mat"   : "THOX",
+
+        ### Fiber Parameters
+        "fiber_length"     : um(20),
+        "theta"            : 10,
+        "f_core_mat"       : "2% Long Anneal",
+        "f_clad_mat"       : "THOX",
+        "core_diameter"    : um(8.2),
+        "cladding_diameter": um(50),
+        "f_x"              : um(0.5)
+    };
+    return temp;
+}
+function make_waveguide(wg_length, wg_width, wg_height, r, mat, basename) {
+    addrect;
+    set("name", basename);
+    # position center
+    set("x", r(1));
+    set("y", r(2));
+    set("z", r(3));
+    # spans: length along x, width along y, height along z
+    set("x span", wg_length);
+    set("y span", wg_width);
+    set("z span", wg_height);
+    set("material", mat);
+}
+function Pconfig(){ 
+    set('standard fourier transform',1);
+    set('total spectral average',1);
+    set('partial spectral average',0);
+    set("output power",1);
+    set("output Ex",1);
+    set("output Ey",1);
+    set("output Ez",1);
+    set("output Hx",1);
+    set("output Hy",1);
+    set("output Hz",1);
+    set("output Px",1);
+    set("output Py",1);
+    set("output Pz",1);     
+}
+function add_monitor_pair(x_loc, base_name,y_span,z_span,sim) {
+
+    # Add power monitor
+    addpower;
+      set("name",             "Power_" + base_name);
+      set("monitor type",     "2D X-Normal");
+      set("x",                x_loc);
+      set("y",                0);
+      set("z",                0);
+      set("y span",           y_span);
+      set("z span",           z_span);
+    Pconfig;
+
+    # Add mode expansion monitor
+    addmodeexpansion;
+      set("name",             "ModeExpand_" + base_name);
+      set("monitor type",     "2D X-Normal");
+      set("x",                x_loc);
+      set("y",                0);
+      set("z",                0);
+      set("y span",           y_span);
+      set("z span",           z_span);
+      set("mode selection",   sim.mode);
+      set("use source limits",1);
+    select("ModeExpand_" + base_name);
+    setexpansion("Power_" + base_name, "Power_" + base_name);
+}
+function add_mesh_sweep(mesh_list){
+    if (length(mesh_list)<2) {
+        return 0;
+        }
+        
+    N = length(mesh_list);
+    ### Sweep Name ###
+    sweep_name = 'Mesh_Acc_Sweep';
+    try{deletesweep(sweep_name);}
+    addsweep(0);
+    setsweep("sweep", "name",sweep_name);
+    setsweep(sweep_name,'type','Value');
+    setsweep(sweep_name,'number of points',N);
+    
+    ### Sweep Para ###
+    para = struct;
+    para.Name = "Mesh Order";
+    para.Parameter = "::model::FDTD::mesh accuracy";
+    para.Type = "Number";
+    try{
+        para.Value_1 = mesh_list(1);
+        para.Value_2 = mesh_list(2);
+        para.Value_3 = mesh_list(3);
+        para.Value_4 = mesh_list(4);
+        para.Value_5 = mesh_list(5);
+        para.Value_6 = mesh_list(6);
+        para.Value_7 = mesh_list(7);
+        para.Value_8 = mesh_list(8);
+    }
+    addsweepparameter(sweep_name, para);
+    
+    ### Sweep Result ###
+    res = struct;
+    res.Name = 'T_ida';
+    res.Result = "::model::T_ida";
+    addsweepresult(sweep_name,res);
+    
+    res = struct;
+    res.Name = 'T';
+    res.Result = "::model::T_spectrum";
+    addsweepresult(sweep_name,res);
+}
+function add_1D_sweep(x_list,property,type){
+    if (length(x_list)<2) {
+        return 0;
+        }
+    x = x_list;
+    N = length(x);
+    ### Sweep Name ###
+    sweep_name = 'Var_1D_Sweep';
+    try{deletesweep(sweep_name);}
+    addsweep(0);
+    setsweep("sweep", "name",sweep_name);
+    setsweep(sweep_name,'type','Value');
+    setsweep(sweep_name,'number of points',N);
+    
+    ### Sweep Para ###
+    para = struct;
+    para.Name = "var_1D";
+    para.Parameter = property; #"::model::Grating::etch";
+    para.Type = type;
+    for (i = 1; i <= N; i = i + 1) {
+        key = "Value_" + num2str(i);
+        cmd = "para." + key + " = " + num2str(x(i)) + ";";
+        eval(cmd);
+    }
+    
+    addsweepparameter(sweep_name, para);
+
+
+    ### Sweep Result ###
+    res = struct;
+    res.Name = 'T_ida';
+    res.Result = "::model::T_ida";
+    addsweepresult(sweep_name,res);
+    
+    res = struct;
+    res.Name = 'T_spectrum';
+    res.Result = "::model::T_spectrum";
+    addsweepresult(sweep_name,res);
+    
+    res = struct;
+    res.Name = 'lambda';
+    res.Result = "::model::lambda";
+    addsweepresult(sweep_name,res);
+}
