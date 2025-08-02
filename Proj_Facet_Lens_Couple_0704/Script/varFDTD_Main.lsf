@@ -1,0 +1,100 @@
+if(1){
+clear;
+clc;
+clearfunctions;
+switchtolayout;
+deleteall;
+}
+# Include Files 
+addpath("C:/Users/EricY/Desktop/Lumerical_Simulation/Library");
+Objects_Lib;
+Utils; 
+Configure_Setup;
+
+################################
+# Basic Configure Once
+################################
+sim = init();
+   
+### Optical Setup ###
+    sim.ida = nm(633);
+    sim.ida_width = nm(20);
+    sim.f_pts    = 20;
+    sim.mode     = 'Fundamental TE mode';
+    
+### Geo Setup ###
+    sim.L = um(10);
+    sim.route_wg_L = um(10);
+    sim.wg_height = um(2);
+    w = um(8);
+    sim.w1 = w;
+    sim.w2 = w/4;
+    
+### Diode Setup ###   
+    sim.d_width = um(5);
+    sim.d_height= um(2.2);
+    sim.d_space = um(10);
+    
+### FDTD Setup ###   
+    sim.y_span   = um(12);
+    sim.z_span   = um(6);
+    sim.mesh_acc = 2;
+    
+### Movie Setup ###      
+    sim.movie = 0;
+    sim.movie_scale = 0.01;
+    sim.pix   = 500;
+    mesh_list  = [1,2,3,4,5];
+    width_list = um(1):um(0.5):um(8);
+    
+### Mat Setup ###   
+    sim.core_mat = '2% Long Anneal';
+
+
+
+
+geo_config(sim);
+    ################################
+    # Load 
+    ################################  
+    buffer = nm(500); 
+    offset = nm(500);
+    tapered_length = sim.L;
+    x_boost = tapered_length/2;
+
+    x0 = -sim.route_wg_L+offset;
+    x1 = abs(0-x0);
+    x2 = (tapered_length);
+    x3 = sim.route_wg_L -offset; 
+    y_span = sim.y_span;
+    z_span = sim.z_span;
+    total_x = sim.L + 2*sim.route_wg_L;
+    mesh_ = sim.mesh_size;
+    
+    sim_time  = sim.sim_time*1e-15;
+    auto_shutoff = sim.auto_shutoff;
+    movie     = sim.movie;
+    mesh_acc  = sim.mesh_acc;
+    movie_scale = sim.movie_scale;
+    pix     = sim.y_pixcel;
+    sample_rate = sim.sample_rate;    
+
+    ################################
+    # FDTD Simulation Region
+    ################################       
+    addvarfdtd; 
+    # position & size
+    set("x min",             x0);
+    set("x max",         x0+x1+x2+x3);
+    set("y",              0);
+    set("y span",         y_span);
+    set("z",              0);
+    set("z span",         z_span);
+    # mesh 
+    set('simulation time', sim_time);
+    set('auto shutoff min',auto_shutoff);
+    set('mesh accuracy',mesh_acc);
+
+
+
+

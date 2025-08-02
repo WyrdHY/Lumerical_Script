@@ -20,20 +20,21 @@ function geo_config(sim){
     route_wg_L     = sim.route_wg_L;
     sub_length     = tapered_length+2*route_wg_L;
     
+    x_boost = tapered_length/2;
     ################################
     # Taper Wg
     ################################
     
     Taper_Wg(sim);
     select('TaperWg');
-        set('x',0);
+        set('x',x_boost);
         set('y',0);
         set('z',0);
     
     ################################
     # Substrate       
     ################################
-    substrate_center = [0, 0, -sub_height/2-wg_height/2]; 
+    substrate_center = [x_boost, 0, -sub_height/2-wg_height/2]; 
     
     make_waveguide(sub_length, sub_width, sub_height, 
     substrate_center, sub_mat, "substrate");
@@ -45,7 +46,7 @@ function geo_config(sim){
     # Clad
     ################################
     clad_zspan  = wg_height + clad_height;
-    clad_center = [0, 0, (clad_zspan/2) - wg_height/2]; 
+    clad_center = [x_boost, 0, (clad_zspan/2) - wg_height/2]; 
     
     make_waveguide(sub_length, sub_width, clad_zspan,
     clad_center, clad_mat, "cladding");
@@ -61,22 +62,26 @@ function geo_config(sim){
     #################################        
     Diode_Laser(sim);
     select('DiodeLaser');
-        set('x',0);
+        set('x',x_boost);
         set('y',0);
         set('z',0);    
     
 }
-function sim_eme_config(sim){
+
+function sim_EME_config(sim){
     ################################
     # EME
     ################################
     mesh_ = sim.mesh_size;
     buffer = nm(500); 
     offset = nm(500);
-    x0 = -0.5*(sim.L)-sim.route_wg_L+offset;
-    x1 = sim.route_wg_L-offset;
-    x2 = sim.L;
-    x3 = x1-offset; 
+    tapered_length = sim.L;
+    x_boost = tapered_length/2;
+
+    x0 = -sim.route_wg_L+offset;
+    x1 = abs(0-x0);
+    x2 = (tapered_length);
+    x3 = sim.route_wg_L -offset; 
     addeme;
     # Geo
     set("x min",x0);
@@ -269,7 +274,141 @@ function sim_FDTD_config(sim){
     set("min sampling per cycle", sample_rate);
     }
 }
+function sim_varFDTD_config(sim){
+    ################################
+    # Load 
+    ################################  
+    buffer = um(1);
+    y_span = sim.y_span;
+    z_span = sim.z_span;
+    x0 = -0.5*(sim.L) - sim.route_wg_L;
+    x1 = x0+sim.route_wg_L;
+    x2 = x1+sim.L;
+    x3 = x2+sim.route_wg_L/2-nm(100);
+    total_x = sim.L + 2*sim.route_wg_L;
+    mesh_ = sim.mesh_size;
+    
+    sim_time  = sim.sim_time*1e-15;
+    auto_shutoff = sim.auto_shutoff;
+    movie     = sim.movie;
+    mesh_acc  = sim.mesh_acc;
+    movie_scale = sim.movie_scale;
+    pix     = sim.y_pixcel;
+    sample_rate = sim.sample_rate;    
 
+    ################################
+    # FDTD Simulation Region
+    ################################       
+    addfdtd; 
+    # position & size
+    set("x min",              -total_x/2-um(1));
+    set("x max",         total_x/2-sim.route_wg_L/2);
+    set("y",              0);
+    set("y span",         y_span);
+    set("z",              0);
+    set("z span",         z_span);
+    # mesh 
+    set('simulation time', sim_time);
+    set('auto shutoff min',auto_shutoff);
+    set('mesh accuracy',mesh_acc);
+    ################################
+    # Gaussian Beam Source
+    ################################
+    addgaussian;
+    # place at beginning of taper (x0)
+    set("injection axis",  "x");
+    set("x",               x0-nm(100));
+    set("y",               0);
+    set("z",               0);
+    set("y span",         y_span);
+    set("z span",         z_span);
+    set("direction",       "forward");
+    # 2 µm spot diameter → w0 = 1 µm
+    set("waist radius w0", um(2.5));
+    set("distance from waist", 0);
+    set("eliminate discontinuities",1);
+    set("optimize for short pulse",0);
+
+    # pulse centered at sim.ida
+    set("set wavelength",      1);
+    set("center wavelength",   sim.ida);
+    set("wavelength span",     nm(20));
+    set("enabled",             1);
+    
+    ################################
+    # Power Monitor
+    ################################
+    setglobalmonitor('frequency points',sim.f_pts);
+    if (1){
+    #addpower;
+    #set("name",           "Power_x0");
+    #set("monitor type",   "2D X-Normal");
+    #set("x",              x0);
+    #set("y",              0);
+    #set("y span",         sim.w1);
+    #set("z span",         sim.wg_height);
+    
+    #Pconfig;
+    
+    # — at x1
+    #addpower;
+    #set("name",           "Power_x1");
+    #set("monitor type",   "2D X-Normal");
+    #set("x",              x1);
+    #set("y",              0);
+    #set("y span",          y_span);
+    #set("z span",          z_span);
+    
+    #Pconfig;
+    
+    # — at x2
+    addpower;
+    set("name",           "Power_x2");
+    set("monitor type",   "2D X-Normal");
+    set("x",              x2);
+    set("y",              0);
+    set("z",               0);
+
+    set("y span",          y_span);
+    set("z span",          z_span);
+    
+    Pconfig;
+    
+    }
+    
+    addmodeexpansion;
+    set("name",            "ModeExpand_x2");
+    set("monitor type",   "2D X-Normal");
+    set("x",               x2);
+    set("y",               0);
+    set("z",               0);
+    
+    set("y span",          y_span);
+    set("z span",          z_span);
+    set("mode selection",  "fundamental TE mode");
+    set("use source limits", 1);
+    select("ModeExpand_x2");
+    setexpansion("Power_x2", "Power_x2");
+    
+    ################################
+    # Movie Monitor(optional)
+    ################################
+    if (sim.movie){
+    addmovie;
+    set("name",                   "movie_XZ");
+    set("monitor type",           "2D Y-normal");
+    # place at y = 0 to slice through the center
+    set("y",                      0);
+    # span the full FDTD region in x and z
+    set("x span",                 total_x);
+    set("z span",                 z_span);
+    # optional visualization settings
+    set("scale",                  movie_scale);
+    set("horizontal resolution",  pix);
+    set("lock aspect ratio",      1);
+    set("min sampling per cycle", sample_rate);
+    }
+}
 function sim_Diode_FDTD_config(sim){
     ################################
     # Load 

@@ -22,6 +22,10 @@ function grating_length(sim) {
     return dz;
 }
 function geo_config(sim) {
+    ## Reset Model Setup Scrip
+    select('::model');
+    set('setup script','');
+    
     Lg         = grating_length(sim);
     route_wg_L = sim.route_wg_L;
     wg_width   = sim.wg_width;
@@ -32,7 +36,7 @@ function geo_config(sim) {
     box_mat    = sim.box_mat;
     box_height = sim.box_height;
     sub_height = um(15);
-
+    groupscope('::model');
     ################################
     # Apodized Grating
     ################################
@@ -152,7 +156,14 @@ function sim_FDTD_2D_config(sim){
         set('auto shutoff min',auto_shutoff);
         set('mesh accuracy',mesh_acc);
         setglobalmonitor('frequency points',f_pts);
-    
+    ### Keep FDTD up to date ###
+        select('::model');
+            set_script = "select('FDTD');\n";
+            set_script = set_script + "route_wg_L_ = getnamed('Grating','route_wg_L');\n";
+            set_script = set_script + "x_f = getnamed('::model::Grating::out_wg','x min');\n";
+            set_script = set_script + "x_max = x_f+route_wg_L_*0.98;\n";
+            set_script = set_script + "set('x max',x_max);";
+        set('setup script',set_script);
     ################################
     # Input Source
     ################################ 

@@ -89,9 +89,12 @@ sim_FDTD_2D_config(sim);
 
 
 
+
+
+
+
 ### DLC Mesh ###
 DLC_mesh = 0; 
-    
 if (DLC_mesh){
     property_name = "::model::Grating::F0";
     type = "Number";
