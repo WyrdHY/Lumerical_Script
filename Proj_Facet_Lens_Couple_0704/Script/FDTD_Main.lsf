@@ -17,18 +17,19 @@ Configure_Setup;
 sim = init();
    
 ### Optical Setup ###
-    sim.ida = nm(633);
-    sim.ida_width = nm(20);
-    sim.f_pts    = 20;
+    sim.ida = nm(1064);
+    sim.ida_width = nm(40);
+    sim.f_pts    = 40;
     sim.mode     = 'Fundamental TE mode';
-    
+    sim.spot_diameter = um(5);
 ### Geo Setup ###
     sim.L = um(1);
     sim.route_wg_L = um(5);
     sim.wg_height = um(2);
-    w = um(8);
+    w = um(5.5);
     sim.w1 = w;
     sim.w2 = w;
+    sim.clad_height = um(10);
     
 ### Diode Setup ###   
     sim.d_width = um(5);
@@ -45,31 +46,28 @@ sim = init();
     sim.movie_scale = 0.01;
     sim.pix   = 500;
     mesh_list  = [1,2,3,4,5];
-    width_list = um(1):um(0.5):um(8);
+    width_list = um(3):um(0.5):um(10);
     
 ### Mat Setup ###   
     sim.core_mat = '2% Long Anneal';
 
-
+### Sweep List ### 
+    SD_list = um(2):um(0.5):um(8.2);spot_radius = '::model::source::waist radius w0';
+    width_list = um(1.5):um(0.5):um(10);
 
 
 geo_config(sim);
-sim_Diode_FDTD_config(sim);
+#sim_Diode_FDTD_config(sim);
+sim_FDTD_config(sim);
 
 
 
+add_1D_sweep(SD_list/2,'::model::source::waist radius w0','Number');
+add_mesh_sweep(1:1:8);
+sim_log(sim,'log.txt');
 
 ##
-#select("FDTD::ports::input TE mode");
-#set('mode selection', sim.mode);
-
-
-##
-#matlabsave('convergence_test.mat',T,T2);
-
-
-
-
+#matlabsave("1D_Sweep",T_ida,T_spectrum,lambda);
 
 
 

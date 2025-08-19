@@ -1,0 +1,26 @@
+T_data     = getresult('FDTD::ports::output','expansion for port monitor');
+T_spectrum = abs(T_data.T_out);
+lambda     = T_data.lambda;
+T_ida      = spline(T_spectrum, lambda, ida);
+mesh_acc   = getnamed('FDTD','mesh accuracy');
+mesh_info   = 'mesh accuracy = ' + num2str(mesh_acc,'%d');
+try {
+    grid = linspace(min(lambda),max(lambda),500);
+    y_fit = spline(T_spectrum,lambda,grid);
+    
+    plot_title = 'T_up: ' + mesh_info;
+
+    plot_opt = "plot type=point, marker style=o, marker size=4,color = green";
+    plot(lambda*1e9, T_spectrum, "wavelength(nm)", "T",plot_title,plot_opt);
+    
+    holdon; 
+    
+    plot_opt = "plot type=line, pen=-, linewidth=2,color = green";
+    plot(grid*1e9,y_fit, "wavelength(nm)", "T",plot_title,plot_opt);  
+    
+    legend("T_up","Cubic Interp");
+    
+    setplot("legend position",6);
+    print('T_' + num2str(ida*1e9, '%.1f') + ' = ' + num2str(T_ida, '%.5f'));
+    print(mesh_info);
+}

@@ -1,0 +1,21 @@
+offset = (500)*1e-9;
+tapered_length = getnamed('TaperWg','L');
+route_wg_L = getnamed('TaperWg','route_wg_L');
+x_boost = tapered_length/2;
+tl = route_wg_L*2+tapered_length;
+
+x0 = -route_wg_L+offset;
+x1 = (-x0);
+x2 = (tapered_length);
+x3 = route_wg_L -offset; 
+
+# Geo Config
+select('EME');
+set("x min",x0);
+set("group spans",[x1; x2; x3]);
+
+setnamed('TaperWg','x',x_boost);
+setnamed('substrate','x',x_boost);
+setnamed('substrate','x span',tl);
+setnamed('cladding','x',x_boost);
+setnamed('cladding','x span',tl);

@@ -72,8 +72,8 @@ function Diode_Laser(sim) {
     # Build the group’s script step-by-step
     myscript = "";
     # compute diode start/end
-    myscript = myscript + "xf = -L/2 - route_wg_L - diode_space; \n";
-    myscript = myscript + "xi = xf - d_length; \n";
+    myscript = myscript + "xf =  d_length/2; \n";
+    myscript = myscript + "xi =   -d_length/2; \n";
 
     # Core region
     myscript = myscript + "addrect; \n";

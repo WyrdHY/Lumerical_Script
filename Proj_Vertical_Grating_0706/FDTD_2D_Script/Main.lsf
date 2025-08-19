@@ -23,19 +23,26 @@ sim = init();
     sim.N = 25;
     sim.F0 =0.5; #0.48144;#0.467674;
     sim.R = 0.0/um(1);#0.025/um(1);
-    sim.route_wg_L = um(10);
-
-    sim.G_period = um(0.4); #um(0.881746); #nm(48); 881.746
-    sim.etch = nm(70);
     
- ### Optics ###   
-    sim.ida = nm(1550);
-    sim.ida_width = nm(250);
-    sim.f_pts = 100;
+    sim.G_period = nm(353.52); #um(0.881746); #nm(48); 881.746
+    sim.etch = nm(220);
+    
+    sim.wg_height = nm(650);
+    
+    
+    sim.tox_mat = 'Air';
+    sim.tox_height = um(1);
+    sim.route_wg_L = um(10);
+    
+ ### Optics ###  
+    temp = round(1550/3); 
+    sim.ida = nm(temp);
+    sim.ida_width = nm(100);
+    sim.f_pts = 50;
     sim.mode    = 'fundamental TM mode';
 
-    sim.mesh_acc = 4;
-    sim.auto_shutoff = 0.5/100;
+    sim.mesh_acc = 6;
+    sim.auto_shutoff = 0.1/100;
     sim.optimize = 1;
 
     sim.movie=0;    
@@ -43,10 +50,10 @@ sim = init();
     
 ### Fiber ###   
     sim.f_x   = nm(3247); # 1.44427 
-    sim.theta = 10;         # 1.43482
+    sim.theta = 0;         # 1.43482
 
 ### Silicon(Optional, Will Override) ###
-silicon = 1;
+silicon = 0;
 if (silicon) {
     #"Si (Silicon) - Palik"
     #"Si (Silicon) - Dispersive & Lossless"
@@ -69,11 +76,13 @@ if (silicon) {
     sim.tox_height = nm(720);
 }
 
+### Log info
+    log_name = "config";
+    
+    fp = log_name +".txt";
+    sim_log(sim,fp);
 
-
-################################
-# Set_Up
-################################
+### Scan List ###
     mesh_list = [1,2,3,4,5,6,7,8];
     F_list = [0.4,0.45,0.5,0.55,0.6];
     fx_list = um(1.8):nm(200):um(5);
@@ -83,27 +92,22 @@ if (silicon) {
     etch_ymax = um(1):nm(200):um(3.3);
     outport_y = nm(500):nm(500):um(4.9);
     
+################################
+# Set Up
+################################   
 geo_config(sim);
 sim_FDTD_2D_config(sim);
 
 
 
-
-
-
-
-
-### DLC Mesh ###
-DLC_mesh = 0; 
-if (DLC_mesh){
-    property_name = "::model::Grating::F0";
-    type = "Number";
-    add_1D_sweep(F_list,property_name,type);
-}
-
-
-
-
+### Sweep ###
+    DLC_mesh = 0; 
+    if (DLC_mesh){
+        property_name = "::model::Grating::F0";
+        type = "Number";
+        add_1D_sweep(F_list,property_name,type);
+    }
+    
 ##
 #matlabsave('T_spectrum_.mat',T_spectrum,T_ida,lambda);
 ##

@@ -1,21 +1,78 @@
-if(1){
-clear;
-clc;
+# Reset Everything
+if (1){
+#clear;
+#clc;
 clearfunctions;
-switchtolayout;
 deleteall;
+#ct1=now;
+#print((ct1));
 }
-Configure_Setup;
 
+# Include Files 
+addpath("C:/Users/EricY/Desktop/Lumerical_Simulation/Library");
+Objects_Lib;
+Utils; 
+Configure_Setup;
 ################################
-# Basic Configure Once
+# Config
 ################################
 sim = init();
-sim.L = um(15);
-sim.route_wg_L = um(5);
-sim.mesh_size = nm(50);
-sim.core_mat  ="4%_FHD";
-sim.wg_height = um(2);
+    sim.w1 = um(12);
+    sim.w2 = um(4);
+    sim.L = um(15);
+    sim.route_wg_L = um(5);
+    sim.wg_height = um(2);
+    sim.clad_height = um(10);
+    sim.core_mat  ="2% Long Anneal";
+    sim.clad_mat = "Air";
+    sim.mesh_size = nm(100);
+    sim.mode = 'fundamental TE mode';
+
+
+################################
+# Set Up
+################################
+geo_config(sim);        
+sim_EME_config(sim); 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (0) {
 ################################
 # Double Loop 
 ################################
@@ -125,4 +182,7 @@ matlab("
     legend('Location', 'best', 'FontSize', fs);
     set(gca, 'FontSize', fs);
 ");
+}
+
+##################
 }

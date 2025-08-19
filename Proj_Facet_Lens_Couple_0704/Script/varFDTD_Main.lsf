@@ -23,12 +23,12 @@ sim = init();
     sim.mode     = 'Fundamental TE mode';
     
 ### Geo Setup ###
-    sim.L = um(10);
-    sim.route_wg_L = um(10);
+    sim.L = um(15);
+    sim.route_wg_L = um(5);
     sim.wg_height = um(2);
-    w = um(8);
-    sim.w1 = w;
-    sim.w2 = w/4;
+    
+    sim.w1 = um(12);
+    sim.w2 = um(4);
     
 ### Diode Setup ###   
     sim.d_width = um(5);
@@ -36,7 +36,7 @@ sim = init();
     sim.d_space = um(10);
     
 ### FDTD Setup ###   
-    sim.y_span   = um(12);
+    sim.y_span   = um(18);
     sim.z_span   = um(6);
     sim.mesh_acc = 2;
     
@@ -80,21 +80,22 @@ geo_config(sim);
     sample_rate = sim.sample_rate;    
 
     ################################
-    # FDTD Simulation Region
+    # varFDTD Simulation Region
     ################################       
     addvarfdtd; 
-    # position & size
-    set("x min",             x0);
-    set("x max",         x0+x1+x2+x3);
-    set("y",              0);
-    set("y span",         y_span);
-    set("z",              0);
-    set("z span",         z_span);
-    # mesh 
-    set('simulation time', sim_time);
-    set('auto shutoff min',auto_shutoff);
-    set('mesh accuracy',mesh_acc);
-
-
-
+        # position & size
+        set("x min",             x0);
+        set("x max",         x0+x1+x2+x3);
+        set("y",              0);
+        set("y span",         y_span);
+        set("z",              0);
+        set("z span",         z_span);
+        # mesh 
+        set('simulation time', sim_time);
+        set('auto shutoff min',auto_shutoff);
+        set('mesh accuracy',mesh_acc);
+    
+select('varFDTD');
+    set('x0',0);set('y0',0);
+    set('number of test points',6);
 

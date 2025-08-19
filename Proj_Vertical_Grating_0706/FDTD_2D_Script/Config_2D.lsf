@@ -22,10 +22,13 @@ function grating_length(sim) {
     return dz;
 }
 function geo_config(sim) {
-    ## Reset Model Setup Scrip
+    ### Reset Model Setup Scrip
     select('::model');
     set('setup script','');
-    
+    ################################
+    # Load
+    ################################
+
     Lg         = grating_length(sim);
     route_wg_L = sim.route_wg_L;
     wg_width   = sim.wg_width;
@@ -112,7 +115,7 @@ function geo_config(sim) {
         set('use relative coordinates',0);
         set('x min',-route_wg_L);
         set('x max',um(50));
-        set('y max',0.5*wg_height+sim.tox_height+um(3));
+        set('y max',0.5*wg_height+sim.tox_height+um(2));
         set('y min',0.5*wg_height+sim.tox_height);
         set('z'    ,0);
         set('z span', um(20));
@@ -259,15 +262,35 @@ function sim_FDTD_2D_config(sim){
                 addanalysisresult("lambda");} 
     else {set('ida',sim.ida);}
 
+        myscript = "";
+        
         myscript = myscript + "T_data     = getresult('FDTD::ports::output','expansion for port monitor');\n";
         myscript = myscript + "T_spectrum = abs(T_data.T_out);\n";
         myscript = myscript + "lambda     = T_data.lambda;\n";
         myscript = myscript + "T_ida      = spline(T_spectrum, lambda, ida);\n";
+        myscript = myscript + "mesh_acc   = getnamed('FDTD','mesh accuracy');\n";
+        myscript = myscript + "mesh_info   = 'mesh accuracy = ' + num2str(mesh_acc,'%d');\n";
         myscript = myscript + "try {\n";
-        myscript = myscript + "    plot(lambda*1e9, T_spectrum);\n";
+        myscript = myscript + "    grid = linspace(min(lambda),max(lambda),500);\n";
+        myscript = myscript + "    y_fit = spline(T_spectrum,lambda,grid);\n";
+        myscript = myscript + "    \n";
+        myscript = myscript + "    plot_title = 'T_up: ' + mesh_info;\n";
+        myscript = myscript + "\n";
+        myscript = myscript + "    plot_opt = \"plot type=point, marker style=o, marker size=4,color = green\";\n";
+        myscript = myscript + "    plot(lambda*1e9, T_spectrum, \"wavelength(nm)\", \"T\",plot_title,plot_opt);\n";
+        myscript = myscript + "    \n";
+        myscript = myscript + "    holdon; \n";
+        myscript = myscript + "    \n";
+        myscript = myscript + "    plot_opt = \"plot type=line, pen=-, linewidth=2,color = green\";\n";
+        myscript = myscript + "    plot(grid*1e9,y_fit, \"wavelength(nm)\", \"T\",plot_title,plot_opt);  \n";
+        myscript = myscript + "    \n";
+        myscript = myscript + "    legend(\"T_up\",\"Cubic Interp\");\n";
+        myscript = myscript + "    \n";
+        myscript = myscript + "    setplot(\"legend position\",6);\n";
         myscript = myscript + "    print('T_' + num2str(ida*1e9, '%.1f') + ' = ' + num2str(T_ida, '%.5f'));\n";
+        myscript = myscript + "    print(mesh_info);\n";
         myscript = myscript + "}\n";
-
+        
     set("analysis script", myscript);
         
         

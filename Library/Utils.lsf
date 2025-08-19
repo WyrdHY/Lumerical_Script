@@ -52,7 +52,11 @@ function init() {
         "x_span"       : um(7),
         "y_span"       : um(10),
         "z_span"       : um(8),
-
+        
+        ### Lens Fiber 
+        "spot_diameter" : um(5),
+        
+        
         ### Diode Laser
         "d_space"      : um(10),
         "d_width"      : um(2.64),
@@ -68,9 +72,21 @@ function init() {
         "f_clad_mat"       : "THOX",
         "core_diameter"    : um(8.2),
         "cladding_diameter": um(50),
-        "f_x"              : um(0.5)
+        "f_x"              : um(0.5),
+        
+        ### EME Analysis
+        "p_xi"      : um(10),
+        "p_xf"      : um(200),
+        "p_pts"     : 20,
+        "p_group"   : "group span 2"
     };
     return temp;
+}
+
+function sim_log(temp, filename) {
+  sim = temp;
+  s = toscript(sim, false); 
+  write(filename, s, "overwrite"); 
 }
 function make_waveguide(wg_length, wg_width, wg_height, r, mat, basename) {
     addrect;
@@ -167,6 +183,11 @@ function add_mesh_sweep(mesh_list){
     res = struct;
     res.Name = 'T';
     res.Result = "::model::T_spectrum";
+    
+    res = struct;
+    res.Name = 'lambda';
+    res.Result = "::model::lambda";
+    addsweepresult(sweep_name,res);
     addsweepresult(sweep_name,res);
 }
 function add_1D_sweep(x_list,property,type){
@@ -212,4 +233,145 @@ function add_1D_sweep(x_list,property,type){
     res.Name = 'lambda';
     res.Result = "::model::lambda";
     addsweepresult(sweep_name,res);
+}
+#########################################
+### Facet Sweep Exclusive  ###
+#########################################
+function add_width_sweep(width_list){
+    if (length(width_list)<2) {
+        return 0;
+        }
+    x = width_list;
+    N = length(x);
+    ### Sweep Name ###
+    sweep_name = 'Width_Sweep';
+    try{deletesweep(sweep_name);}
+    addsweep(0);
+    setsweep("sweep", "name",sweep_name);
+    setsweep(sweep_name,'type','Value');
+    setsweep(sweep_name,'number of points',N);
+    
+    ### Sweep Para ###
+    para = struct;
+    para.Name = "Width";
+    para.Parameter = "::model::TaperWg::w1";
+    para.Type = "Length";
+    for (i = 1; i <= N; i = i + 1) {
+        key = "Value_" + num2str(i);
+        cmd = "para." + key + " = " + num2str(x(i)) + ";";
+        eval(cmd);
+    }
+    
+    addsweepparameter(sweep_name, para);
+    para.Parameter = "::model::TaperWg::w2";
+    addsweepparameter(sweep_name, para);
+
+    ### Sweep Result ###
+    res = struct;
+    res.Name = 'T_ida';
+    res.Result = "::model::T_ida";
+    addsweepresult(sweep_name,res);
+    
+    res = struct;
+    res.Name = 'T_spectrum';
+    res.Result = "::model::T_spectrum";
+    addsweepresult(sweep_name,res);
+    
+    res = struct;
+    res.Name = 'lambda';
+    res.Result = "::model::lambda";
+    addsweepresult(sweep_name,res);
+}
+
+
+
+#########################################
+### EME Analysis ###
+#########################################
+
+### Distance Sweep ###
+function p_sweep(sim){
+    # Load
+    xi = sim.p_xi;
+    xf = sim.p_xf;
+    n  = sim.p_pts;
+    group = sim.p_group;
+    
+    # Config
+    setemeanalysis("propagation sweep",1);
+    setemeanalysis("parameter",group);
+    setemeanalysis("start",xi);
+    setemeanalysis("stop",xf);
+    setemeanalysis("number of points",n);
+
+    emesweep;
+    
+    S = getemesweep('S');
+    
+    # plot S21 vs group span
+    s21 = S.s21;
+    group_span = S.group_span_2*1e6;
+    T_raw = abs(s21)^2;
+    plot_title = "|s21|^2";
+    
+    plot_opt = "plot type=point, marker style=o, marker size=4,color = green";
+    plot(group_span,T_raw, "group span(um)", "T",plot_title,plot_opt);
+    holdon;
+    
+    grid = linspace(xi*1e6,xf*1e6+20,100);
+    poly_deg = 4;
+    
+    fit = polyfit(group_span,T_raw,poly_deg);    
+    y_fit = fit(1); 
+    for (n=2:poly_deg+1) {
+         y_fit = y_fit+fit(n)*grid^(n-1);   
+    }
+
+    
+    plot_opt = "plot type=line, pen=--, linewidth=2,color = green";
+    plot(grid,y_fit, "group span(um)", "T",plot_title,plot_opt);   
+    
+    legend("|s21|^2","Poly Fit");
+    setplot("legend position",8);
+} 
+
+
+
+#########################################
+### FDTD Grating Neff ###
+#########################################
+function n_eff(sim) {
+    port_in = 'FDTD::ports::input';
+    xi = getnamed(port_in,'x');
+    # n1
+        setnamed(port_in,'x',-nm(500));
+        temp = getresult(port_in,'neff');
+        n1 = real(temp.neff);
+    # n2
+        e_width = getnamed('Grating::tooth_E1','x span');
+        etch_pos = e_width/2;
+        setnamed(port_in,'x',etch_pos);
+        temp = getresult(port_in,'neff');
+        n2 = real(temp.neff);
+    # neff 
+    result = sim.F0*n1+(1-sim.F0)*n2;
+        to_print = "";
+        to_print = to_print + "neff(" + num2str(sim.ida*1e9,"%.2f") + ") = ";
+        to_print = to_print + num2str(sim.F0,"%.2f") + "*" + num2str(n1,"%.4f");
+        to_print = to_print + " + " + num2str(1 - sim.F0,"%.2f") + "*" + num2str(n2,"%.4f");
+        
+        to_print2 = "";
+        to_print2 = "neff(" + num2str(sim.ida*1e9,"%.2f") + ") = " + num2str(result,"%.6f");
+        
+        to_print3 = "";
+        to_print3 = "ida/n_eff = " + num2str(sim.ida*1e9/result,"%.2f")+" [nm]";
+    print(to_print);
+    print(to_print2);
+    print(to_print3);
+    
+    
+    # Set FDTD port back 
+    setnamed(port_in,'x',xi);
+    return result;
+    
 }

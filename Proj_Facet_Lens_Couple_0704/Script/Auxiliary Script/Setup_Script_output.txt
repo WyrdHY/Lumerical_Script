@@ -1,0 +1,23 @@
+EME_setup = "";
+
+EME_setup = EME_setup + "offset = (500)*1e-9;\n";
+EME_setup = EME_setup + "tapered_length = getnamed('TaperWg','L');\n";
+EME_setup = EME_setup + "route_wg_L = getnamed('TaperWg','route_wg_L');\n";
+EME_setup = EME_setup + "x_boost = tapered_length/2;\n";
+EME_setup = EME_setup + "tl = route_wg_L*2+tapered_length;\n";
+EME_setup = EME_setup + "\n";
+EME_setup = EME_setup + "x0 = -route_wg_L+offset;\n";
+EME_setup = EME_setup + "x1 = (-x0);\n";
+EME_setup = EME_setup + "x2 = (tapered_length);\n";
+EME_setup = EME_setup + "x3 = route_wg_L -offset; \n";
+EME_setup = EME_setup + "\n";
+EME_setup = EME_setup + "# Geo Config\n";
+EME_setup = EME_setup + "select('EME');\n";
+EME_setup = EME_setup + "set(\"x min\",x0);\n";
+EME_setup = EME_setup + "set(\"group spans\",[x1; x2; x3]);\n";
+EME_setup = EME_setup + "\n";
+EME_setup = EME_setup + "setnamed('TaperWg','x',x_boost);\n";
+EME_setup = EME_setup + "setnamed('substrate','x',x_boost);\n";
+EME_setup = EME_setup + "setnamed('substrate','x span',tl);\n";
+EME_setup = EME_setup + "setnamed('cladding','x',x_boost);\n";
+EME_setup = EME_setup + "setnamed('cladding','x span',tl);\n";

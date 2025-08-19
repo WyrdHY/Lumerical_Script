@@ -4,6 +4,9 @@ Utils;
 
 
 function geo_config(sim){
+    ### Reset Model Setup Scrip
+    select('::model');
+    set('setup script','');
     ################################
     # Load
     ################################
@@ -19,7 +22,6 @@ function geo_config(sim){
     clad_height    = sim.clad_height;
     route_wg_L     = sim.route_wg_L;
     sub_length     = tapered_length+2*route_wg_L;
-    
     x_boost = tapered_length/2;
     ################################
     # Taper Wg
@@ -53,16 +55,19 @@ function geo_config(sim){
     
     set("override mesh order from material database", 1);
     set("mesh order", 2);
-    if(clad_height==0){
-    select('cladding');
-    delete;    
-        }
+    set('override color opacity from material database',1);
+    set('alpha',0.3);
+    #if(clad_height==0){
+    #select('cladding');
+    #delete;    
+    #    }
     #################################
     # Diode Laser(Mimic By Waveguide)
-    #################################        
+    #################################  
+    x_diode = -route_wg_L-sim.d_space-sim.d_length/2;    
     Diode_Laser(sim);
     select('DiodeLaser');
-        set('x',x_boost);
+        set('x',x_diode);
         set('y',0);
         set('z',0);    
     
@@ -79,9 +84,10 @@ function sim_EME_config(sim){
     x_boost = tapered_length/2;
 
     x0 = -sim.route_wg_L+offset;
-    x1 = abs(0-x0);
+    x1 = (-x0);
     x2 = (tapered_length);
     x3 = sim.route_wg_L -offset; 
+    mode = sim.mode;
     addeme;
     # Geo
     set("x min",x0);
@@ -93,11 +99,12 @@ function sim_EME_config(sim){
     # Cell
     set('number of cell groups',3);
     set("group spans",[x1; x2; x3]);
-    set("cells",[1; 1; 1]);
+    set("cells",[1; 20; 1]);
+    set("allow custom eigensolver settings",1);
+    set("modes",[4; 10; 4]);
     set("display cells",1);
     
     # Sim Setup
-    EM_path = "D:\Caltech\Lumerical_Simulation\Proj_Facet_Lens_Couple_0704\SD_5um_1550nm.mat";
     set("wavelength", sim.ida);
     BD = "Metal";
     set("y min bc", "Anti-Symmetric");
@@ -107,39 +114,82 @@ function sim_EME_config(sim){
     
     select("EME::Ports::port_1");
     set("use full simulation span",1);
-    set("mode selection","user import");
-    importdataset(EM_path);
-    #set("mode selection","fundamental TE mode");
+    
+    if (mode == 'user import') 
+    {
+        try{ EM_path = "D:\Caltech\Lumerical_Simulation\Proj_Facet_Lens_Couple_0704\SD_5um_1550nm.mat";}
+        set("mode selection","user import");
+        importdataset(EM_path);
+    }
+    else  
+    {
+        set("mode selection","fundamental TE mode");
+    }
+    
+    
+    
     
     select("EME::Ports::port_2");
     set("mode selection","fundamental TE mode");
     set("use full simulation span",1);
+    
+    
+    ### Keep EME up to date ###
+    select('::model');
+        EME_setup = "";
+        
+        EME_setup = EME_setup + "offset = (500)*1e-9;\n";
+        EME_setup = EME_setup + "tapered_length = getnamed('TaperWg','L');\n";
+        EME_setup = EME_setup + "route_wg_L = getnamed('TaperWg','route_wg_L');\n";
+        EME_setup = EME_setup + "x_boost = tapered_length/2;\n";
+        EME_setup = EME_setup + "tl = route_wg_L*2+tapered_length;\n";
+        EME_setup = EME_setup + "\n";
+        EME_setup = EME_setup + "x0 = -route_wg_L+offset;\n";
+        EME_setup = EME_setup + "x1 = (-x0);\n";
+        EME_setup = EME_setup + "x2 = (tapered_length);\n";
+        EME_setup = EME_setup + "x3 = route_wg_L -offset; \n";
+        EME_setup = EME_setup + "\n";
+        EME_setup = EME_setup + "# Geo Config\n";
+        EME_setup = EME_setup + "select('EME');\n";
+        EME_setup = EME_setup + "set(\"x min\",x0);\n";
+        EME_setup = EME_setup + "set(\"group spans\",[x1; x2; x3]);\n";
+        EME_setup = EME_setup + "\n";
+        EME_setup = EME_setup + "setnamed('TaperWg','x',x_boost);\n";
+        EME_setup = EME_setup + "setnamed('substrate','x',x_boost);\n";
+        EME_setup = EME_setup + "setnamed('substrate','x span',tl);\n";
+        EME_setup = EME_setup + "setnamed('cladding','x',x_boost);\n";
+        EME_setup = EME_setup + "setnamed('cladding','x span',tl);\n";
+
+    set('setup script',EME_setup);
     ################################
     # Mesh
     ################################
-    mesh_length = sim.L + 2 * sim.route_wg_L + 2 * buffer;
-    mesh_width  = sim.w1 + 2 * buffer;
-    
-    addmesh;
-    set("based on a structure", 0);        
-    
-    set("x", 0);
-    set("y", 0);
-    set("z", 0);                            # adjust if needed in vertical
-    
-    set("x span", mesh_length);
-    set("y span", mesh_width);
-    set("z span", sim.wg_height + 2 * buffer);
-    
-    set("override x mesh", 1);
-    set("override y mesh", 1);
-    set("override z mesh", 1);
-    
-    set("dx", mesh_);
-    set("dy", mesh_);
-    set("dz", mesh_);    
+    if (mesh_ > 0)
+    {
+        mesh_length = sim.L + 2 * sim.route_wg_L + 2 * buffer;
+        mesh_width  = sim.w1 + 2 * buffer;
+        
+        addmesh;
+        set("based on a structure", 0);        
+        
+        set("x", x_boost);
+        set("y", 0);
+        set("z", 0);                            # adjust if needed in vertical
+        
+        set("x span", mesh_length);
+        set("y span", mesh_width);
+        set("z span", sim.wg_height + 2 * buffer);
+        
+        set("override x mesh", 1);
+        set("override y mesh", 1);
+        set("override z mesh", 1);
+        
+        set("dx", mesh_);
+        set("dy", mesh_);
+        set("dz", mesh_);    
+    }
 }
-function sim_FDTD_config(sim){
+function sim_FDTD_config(sim){ # lens fiber coupling
     ################################
     # Load 
     ################################  
@@ -160,7 +210,7 @@ function sim_FDTD_config(sim){
     movie_scale = sim.movie_scale;
     pix     = sim.y_pixcel;
     sample_rate = sim.sample_rate;    
-
+    SD = sim.spot_diameter;
     ################################
     # FDTD Simulation Region
     ################################       
@@ -180,53 +230,31 @@ function sim_FDTD_config(sim){
     # Gaussian Beam Source
     ################################
     addgaussian;
-    # place at beginning of taper (x0)
-    set("injection axis",  "x");
-    set("x",               x0-nm(100));
-    set("y",               0);
-    set("z",               0);
-    set("y span",         y_span);
-    set("z span",         z_span);
-    set("direction",       "forward");
-    # 2 µm spot diameter → w0 = 1 µm
-    set("waist radius w0", um(2.5));
-    set("distance from waist", 0);
-    set("eliminate discontinuities",1);
-    set("optimize for short pulse",0);
-
-    # pulse centered at sim.ida
-    set("set wavelength",      1);
-    set("center wavelength",   sim.ida);
-    set("wavelength span",     nm(20));
-    set("enabled",             1);
+        # place at beginning of taper (x0)
+        set("injection axis",  "x");
+        set("x",               x0-nm(100));
+        set("y",               0);
+        set("z",               0);
+        set("y span",         y_span);
+        set("z span",         z_span);
+        set("direction",       "forward");
+        # 2 µm spot diameter → w0 = 1 µm
+        set("waist radius w0", SD/2);
+        set("distance from waist", 0);
+        set("eliminate discontinuities",1);
+        set("optimize for short pulse",1);
+    
+        # pulse centered at sim.ida
+        set("set wavelength",      1);
+        set("center wavelength",   sim.ida);
+        set("wavelength span",     nm(20));
+        set("enabled",             1);
     
     ################################
     # Power Monitor
     ################################
     setglobalmonitor('frequency points',sim.f_pts);
     if (1){
-    #addpower;
-    #set("name",           "Power_x0");
-    #set("monitor type",   "2D X-Normal");
-    #set("x",              x0);
-    #set("y",              0);
-    #set("y span",         sim.w1);
-    #set("z span",         sim.wg_height);
-    
-    #Pconfig;
-    
-    # — at x1
-    #addpower;
-    #set("name",           "Power_x1");
-    #set("monitor type",   "2D X-Normal");
-    #set("x",              x1);
-    #set("y",              0);
-    #set("y span",          y_span);
-    #set("z span",          z_span);
-    
-    #Pconfig;
-    
-    # — at x2
     addpower;
     set("name",           "Power_x2");
     set("monitor type",   "2D X-Normal");
@@ -254,7 +282,30 @@ function sim_FDTD_config(sim){
     set("use source limits", 1);
     select("ModeExpand_x2");
     setexpansion("Power_x2", "Power_x2");
+    ################################
+    # Model Analysis Return 
+    ################################      
+    ### Input & Output ###
+    ida = sim.ida;
+    select('::model');
+        flag = 1; 
+        try{get('ida');
+            flag = 0;}
+        if (flag) {addanalysisprop("ida", 2, ida);
+                    addanalysisresult("T_ida");
+                    addanalysisresult("T_spectrum");
+                    addanalysisresult("lambda");} 
+        else {set('ida',sim.ida);}
     
+        
+        
+            myscript = myscript + "T_data = getresult('ModeExpand_x2','expansion for Power_x2'); \n";
+            myscript = myscript + "T_spectrum = abs(T_data.T_forward);\n";
+            myscript = myscript + "lambda     = T_data.lambda;\n";
+            myscript = myscript + "T_forward = T_data.T_forward; \n";
+            myscript = myscript + "T_ida = spline(T_forward, lambda, ida); \n";
+            myscript = myscript + "print('T_ida=' + num2str(T_ida,'%.3f'));";           
+        set("analysis script", myscript);    
     ################################
     # Movie Monitor(optional)
     ################################
@@ -521,44 +572,4 @@ function sim_Diode_FDTD_config(sim){
 }
 
 
-function add_width_sweep(width_list){
-    if (length(width_list)<2) {
-        return 0;
-        }
-    x = width_list;
-    N = length(x);
-    ### Sweep Name ###
-    sweep_name = 'Width_Sweep';
-    try{deletesweep(sweep_name);}
-    addsweep(0);
-    setsweep("sweep", "name",sweep_name);
-    setsweep(sweep_name,'type','Value');
-    setsweep(sweep_name,'number of points',N);
-    
-    ### Sweep Para ###
-    para = struct;
-    para.Name = "Width";
-    para.Parameter = "::model::TaperWg::w1";
-    para.Type = "Length";
-    for (i = 1; i <= N; i = i + 1) {
-        key = "Value_" + num2str(i);
-        cmd = "para." + key + " = " + num2str(x(i)) + ";";
-        eval(cmd);
-    }
-    
-    addsweepparameter(sweep_name, para);
-    para.Parameter = "::model::TaperWg::w2";
-    addsweepparameter(sweep_name, para);
-
-    ### Sweep Result ###
-    res = struct;
-    res.Name = 'T_ida';
-    res.Result = "::model::T_ida";
-    addsweepresult(sweep_name,res);
-    
-    res = struct;
-    res.Name = 'T';
-    res.Result = "::model::ModeExpand_T::expansion for Power_T";
-    addsweepresult(sweep_name,res);
-}
 
