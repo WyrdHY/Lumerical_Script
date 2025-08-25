@@ -66,7 +66,7 @@ xlabel(x_name,        'FontSize', fs);
 ylabel(y_name,     'FontSize', fs);
 title(p_title, 'FontSize', fs+2);
 set(gca,'FontSize',fs);
-ylim([0 1]);
+%ylim([0 1]);
 %end
 %%
 val = T_spectrum.T_spectrum;

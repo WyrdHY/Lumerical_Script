@@ -1,0 +1,46 @@
+# Matlab Plot of Raw Up spectrum and Far Field Approximate
+name = "::model::FDTD::ports::output";
+temp = getresult(name,'T');
+wl_nm = temp.lambda;
+Traw = temp.T;
+
+i = 30;name = 'monitor';n=401;
+wl_far = wl_nm(i);
+E2=farfield2d(name,i,n);
+theta=farfieldangle(name,i,n);
+
+
+matlabput(wl_nm,Traw,wl_far,E2,theta);
+
+matlab("
+% --- Convert wavelength units (from meters to nm) ---
+wl_nm = wl_nm * 1e9;    % now in nm
+wl_far = wl_far * 1e9;  % far-field wavelength in nm
+
+% --- Plot 1: Raw transmission vs wavelength ---
+figure;
+subplot(2,1,1);
+plot(wl_nm, Traw, 'LineWidth', 2.3,'Color','black');
+xlabel('Wavelength (nm)');
+ylabel('T_{raw}');
+title('T_{up} Raw');
+ax = gca; 
+ax.YTick = linspace(ax.YLim(1), ax.YLim(2), 6);  
+grid on;
+
+% --- Plot 2: Far-field angular profile ---
+subplot(2,1,2);
+semilogy(theta, E2, 'o-','LineWidth', 2.3,'Color','black');
+xlabel('\\theta (deg)');  % Lumerical returns theta in degrees
+ylabel('|E|^2 (a.u.)');
+title('Far-field angular profile');
+legend(sprintf('%.1f nm', wl_far), 'Location', 'best');
+
+[~,i] = max(E2);xc = round(theta(i));d=35;
+xlim([xc-10 xc+10]);
+xticks(xc-10:1:xc+10); 
+grid on;
+
+
+"
+);

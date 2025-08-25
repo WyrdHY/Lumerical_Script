@@ -38,8 +38,8 @@ function init() {
         "mesh_acc"     : 4,
         "movie"        : 0,
         "movie_scale"  : 0.75,
-        "y_pixcel"     : 1500,           
-        "sample_rate"  : 30,
+        "y_pixcel"     : 1000,           
+        "sample_rate"  : 10,
         "auto_shutoff" : .1/100,
         "sim_time"     : 1000,
         "f_pts"        : 100,
@@ -66,6 +66,7 @@ function init() {
         "d_clad_mat"   : "THOX",
 
         ### Fiber Parameters
+        "isfiber"          : 1,
         "fiber_length"     : um(20),
         "theta"            : 10,
         "f_core_mat"       : "2% Long Anneal",

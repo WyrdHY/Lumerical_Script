@@ -56,11 +56,16 @@ function geo_config(sim) {
     ################################
     # Fiber
     ################################
+    if (sim.isfiber) {
     fiber(sim);
     select('Fiber');
-    set('x',sim.f_x);
-    set('y',0);
-    set('z',0);
+        set('x',sim.f_x);
+        set('y',0);
+        set('z',0);
+    }
+    else{
+        xxiw=1;
+    }
     ################################
     # Substrate
     ################################
@@ -125,7 +130,7 @@ function geo_config(sim) {
         set('mesh order',1);    
         set('override color opacity from material database',1);
         set('alpha',1);
-        #delete;
+        delete;
 }
 
 function sim_FDTD_2D_config(sim){
@@ -145,15 +150,20 @@ function sim_FDTD_2D_config(sim){
     Lg        = grating_length(sim);
     route_wg_L= sim.route_wg_L;
     mode      = sim.mode;
+    
+    FA = um(4);
     ################################
     # FDTD 2D
-    ################################   
+    ################################  
     addfdtd;
         set("dimension",1);  
         set("x min",-route_wg_L*0.98);
-        set("x max",um(20)); #20
-        set('y min',um(-3));
-        set('y max',um(5)); 
+        x_f = sim.N*sim.G_period;
+        x_max = x_f+route_wg_L*0.98;
+        set('x max',x_max);
+
+        set('y min',-FA);
+        set('y max',FA); 
         set("Z",0);
         set('simulation time', sim_time);
         set('auto shutoff min',auto_shutoff);
@@ -175,8 +185,8 @@ function sim_FDTD_2D_config(sim){
         set("x",-0.7*route_wg_L);
         
         S_span = um(1);
-        set("y max", um(3));
-        set("y min", um(-2));
+        set('y min',-FA);
+        set('y max',FA); 
         set("name","input"); 
         set('mode selection',mode);
         
@@ -191,7 +201,8 @@ function sim_FDTD_2D_config(sim){
         set('injection axis', 'y');
         set('direction','backward');
         set("x",                sim.f_x);
-        set("y",                um(4.5)); #2.5
+            yport = um(3);#2.5 or 4.5
+        set("y",                yport); 
         set("x span",           um(24));
         set("z span",           sim.wg_width);
         set('theta',            -sim.theta);
@@ -249,6 +260,10 @@ function sim_FDTD_2D_config(sim){
     add_monitor_pair(x2,'x2',um(8),um(2),sim);
     }
     
+    addpower;
+        Pconfig();
+        set('y',yport);
+        
     ################################
     # Model Analysis 
     ################################ 
